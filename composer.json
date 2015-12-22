@@ -1,0 +1,21 @@
+{
+    "name": "bubach/PdfBuilder",
+    "description": "PdfBuilder, a modern PDF generating library for PHP",
+    "license": "no usage restriction",
+    "keywords": ["pdfbuilder"],
+    "authors": [
+        {
+            "name": "Christoffer Bubach",
+            "email": "christoffer.bubach@gmail.com"
+        }
+    ],
+    "require": {},
+    "require-dev": {
+        "phpunit/phpunit": "4.0.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "bubach\\PdfBuilder\\": "src"
+        }
+    }
+}
