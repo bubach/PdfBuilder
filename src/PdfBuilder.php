@@ -66,10 +66,10 @@ class PdfBuilder {
 
         $this->_dochecks();
 
-        $this->_pdfPage  = new PdfPage();
-        $this->_pdfText  = new PdfText();
-        $this->_pdfShape = new PdfShape();
-        $this->_pdfImage = new PdfImage();
+        $this->_pdfPage  = new PdfPage($this);
+        $this->_pdfText  = new PdfText($this);
+        $this->_pdfShape = new PdfShape($this);
+        $this->_pdfImage = new PdfImage($this);
 
         if (defined('PDFGEN_FONTPATH')) {
             $this->_pdfText->setFontPath(FPDF_FONTPATH);
