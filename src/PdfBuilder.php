@@ -61,26 +61,16 @@ class PdfBuilder {
      * @param string $orientation
      * @param string $unit
      * @param string $size
+     * @param null $fontpath
      */
-    public function __construct($orientation='P', $unit='mm', $size='A4') {
+    public function __construct($orientation = 'P', $unit = 'mm', $size = 'A4', $fontpath = null) {
 
         $this->_dochecks();
 
-        $this->_pdfPage  = new PdfPage($this);
-        $this->_pdfText  = new PdfText($this);
+        $this->_pdfPage  = new PdfPage($this, $orientation, $unit, $size);
+        $this->_pdfText  = new PdfText($this, $fontpath);
         $this->_pdfShape = new PdfShape($this);
         $this->_pdfImage = new PdfImage($this);
-
-        if (defined('PDFGEN_FONTPATH')) {
-            $this->_pdfText->setFontPath(FPDF_FONTPATH);
-            if (substr($this->_pdfText->getFontPath(), -1) != '/' && substr($this->_pdfText->getFontPath(), -1) != '\\') {
-                $this->_pdfText->setFontPath($this->_pdfText->getFontPath().'/');
-            }
-        } elseif (is_dir(dirname(__FILE__).'/font')) {
-            $this->_pdfText->setFontPath(dirname(__FILE__).'/font/');
-        } else {
-            $this->_pdfText->setFontPath('');
-        }
     }
 
     /**
