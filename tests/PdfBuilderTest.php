@@ -1,12 +1,12 @@
 <?php
 
-use bubach\PdfBuilder\PdfBuilder;
+use bubach\PdfBuilder\PdfDocument;
 
 class PdfBuilderTest extends PHPUnit_Framework_TestCase {
 
     public function testPdfBuilderConstruct()
     {
-        $pdfBuilder = new PdfBuilder();
+        $pdfBuilder = new PdfDocument();
         $this->assertEquals('', $pdfBuilder->output());
     }
 
