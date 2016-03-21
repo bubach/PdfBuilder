@@ -2,53 +2,100 @@
 namespace bubach\PdfBuilder;
 
 use bubach\PdfBuilder\Page\PdfPage;
-use bubach\PdfBuilder\Objects\PdfText;
-use bubach\PdfBuilder\Objects\PdfShape;
-use bubach\PdfBuilder\Objects\PdfImage;
 use bubach\PdfBuilder\Exception\PdfException;
 
 class PdfDocument {
 
-    /** @var int Current page number */
+    /**
+     * @var int Current page number
+     */
     protected $_currPage = 0;
 
-    /** @var int Global number of pdf objects */
+    /**
+     * @var int Global number of pdf objects
+     */
     protected $_pdfObjects = 2;
 
-    /** @var array Object offsets in output buffer */
+    /**
+     * @var array Object offsets in output buffer
+     */
     protected $_objectOffsets = array();
 
-    /** @var string PDF output buffer */
+    /**
+     * @var string PDF output buffer
+     */
     protected $_outBuffer = '';
 
-    /** @var array PDF pages */
+    /**
+     * @var array PDF pages
+     */
     protected $_pages = array();
 
-    /** @var int Current document state */
+    /**
+     * @var int Current document state
+     */
     protected $_currState = 1;
 
-    /** @var string PDF version used */
+    /**
+     * @var string PDF version used
+     */
     protected $_pdfVersion = '1.3';
 
-    /** constants for PDF state */
+    /**
+     * constants for PDF state
+     */
     const STATE_END_PAGE = 1;
     const STATE_NEW_PAGE = 2;
     const STATE_END_DOC  = 3;
 
     /**
-     * @var PdfText instance
+     * @var string
      */
-    protected $_pdfText;
+    protected $_stdUnit = 'mm';
 
     /**
-     * @var PdfShape instance
+     * @var string
      */
-    protected $_pdfShape;
+    protected $_stdOrientation = 'P';
 
     /**
-     * @var PdfImage instance
+     * @var string
      */
-    protected $_pdfImage;
+    protected $_stdSize = 'A4';
+
+    /**
+     * @var string
+     */
+    protected $_fontPath = "";
+
+    /**
+     * @var array Non default page sizes
+     */
+    public $pageSizes = array();
+
+    /**
+     * @var bool
+     */
+    public $inHeader = false;
+
+    /**
+     * @var bool
+     */
+    public $inFooter = false;
+
+    /**
+     * Array holding plugin objects & methods
+     * preset for core plugins.
+     *
+     * @var array
+     */
+    public $plugins = array(
+        'addImage'     => 'PdfImage',
+        'setFont'      => 'PdfText',
+        'addText'      => 'PdfText',
+        'addCircle'    => 'PdfShape',
+        'addRectangle' => 'PdfShape',
+    );
 
     /**
      * PdfBuilder constructor
@@ -56,14 +103,15 @@ class PdfDocument {
      * @param string $orientation
      * @param string $unit
      * @param string $size
-     * @param null $fontpath
+     * @param null   $fontPath
      */
-    public function __construct($orientation = 'P', $unit = 'mm', $size = 'A4', $fontpath = null)
+    public function __construct($orientation = 'P', $unit = 'mm', $size = 'A4', $fontPath = null)
     {
         $this->_doChecks();
-        $this->_pdfText  = new PdfText($this, $fontpath);
-        $this->_pdfShape = new PdfShape($this);
-        $this->_pdfImage = new PdfImage($this);
+        $this->setFontPath($fontPath);
+        $this->setStdUnit($unit);
+        $this->setStdOrientation($orientation);
+        $this->setStdSize($size);
     }
 
     /**
@@ -88,6 +136,70 @@ class PdfDocument {
         if (get_magic_quotes_runtime() && version_compare(PHP_VERSION, '5.3.0', '<')) {
             @set_magic_quotes_runtime(0);
         }
+    }
+
+    /**
+     * @return string
+     */
+    public function getFontPath()
+    {
+        return $this->_fontPath;
+    }
+
+    /**
+     * @param string $fontPath
+     */
+    public function setFontPath($fontPath)
+    {
+        $this->_fontPath = $fontPath;
+    }
+
+    /**
+     * @return string
+     */
+    public function getStdUnit()
+    {
+        return $this->_stdUnit;
+    }
+
+    /**
+     * @param string $stdUnit
+     */
+    public function setStdUnit($stdUnit)
+    {
+        $this->_stdUnit = $stdUnit;
+    }
+
+    /**
+     * @return string
+     */
+    public function getStdOrientation()
+    {
+        return $this->_stdOrientation;
+    }
+
+    /**
+     * @param string $stdOrientation
+     */
+    public function setStdOrientation($stdOrientation)
+    {
+        $this->_stdOrientation = $stdOrientation;
+    }
+
+    /**
+     * @return string
+     */
+    public function getStdSize()
+    {
+        return $this->_stdSize;
+    }
+
+    /**
+     * @param string $stdSize
+     */
+    public function setStdSize($stdSize)
+    {
+        $this->_stdSize = $stdSize;
     }
 
     /**
@@ -119,6 +231,21 @@ class PdfDocument {
     }
 
     /**
+     * Add plugin, will use all public methods except constructor
+     *
+     * $param string  Loaded class-name
+     */
+    public function addPlugin($className)
+    {
+        $methodNames = get_class_methods($className);
+        foreach ($methodNames as $name) {
+            if ($name != "__construct" && !isset($this->plugins[$name])) {
+                $this->plugins[$name] = $className;
+            }
+        }
+    }
+
+    /**
      * close the document
      */
     public function close()
@@ -126,100 +253,52 @@ class PdfDocument {
         if ($this->_currState == self::STATE_END_DOC) {
             return;
         }
-
         if ($this->_currPage == 0) {
-            //$this->addPage();
+            $this->addPage();
         }
-        /*
-        $this->_inFooter = true;
-        $this->footer();
-        $this->_inFooter = false;
 
+        $this->outputFooter();
         $this->_endpage();
         $this->_enddoc();
-        */
     }
 
     /**
-     * Get PDF shape object
-     *
-     * @return PdfShape
+     * Get a PDF page instance
      */
-    public function shape()
-    {
-        return $this->_pdfShape;
-    }
-
-    /**
-     * Get PdfText object
-     *
-     * @return PdfText
-     */
-    public function text()
-    {
-        return $this->_pdfText;
-    }
-
-    /**
-     *
-     */
-    public function page($number = null)
+    public function getPage($number = null)
     {
         $number = empty($number) ? $this->getCurrPageNo() : $number;
-        return $this->_pages[$number];
-    }
-
-    /**
-     * Get PdfImage object
-     *
-     * @return PdfImage
-     */
-    public function image()
-    {
-        return $this->_pdfImage;
+        return isset($this->_pages[$number]) ? $this->_pages[$number] : $this->addPage();
     }
 
     /**
      * Add new PDF page to document
      *
-     * @param string $orientation
-     * @param string $size
+     * @param  string  $orientation
+     * @param  string  $unit
+     * @param  string  $size
+     * @return PdfPage
      */
-    public function addPage($orientation='', $size='')
+    public function addPage($orientation = '', $unit = '',  $size = '')
     {
+        $orientation = empty($orientation) ? $this->_stdOrientation : $orientation;
+        $unit        = empty($unit) ? $this->_stdUnit : $unit;
+        $size        = empty($size) ? $this->_stdSize : $size;
+        $page        = new PdfPage($this, $orientation, $unit, $size);
 
-        //         $this->_pdfPage  = new PdfPage($this, $orientation, $unit, $size);
+        $this->_currState = self::STATE_END_PAGE;
 
-        // Start a new page
-        if($this->state==0)
-            $this->Open();
-        $family = $this->FontFamily;
-        $style = $this->FontStyle.($this->underline ? 'U' : '');
-        $fontsize = $this->FontSizePt;
-        $lw = $this->LineWidth;
-        $dc = $this->DrawColor;
-        $fc = $this->FillColor;
-        $tc = $this->TextColor;
-        $cf = $this->ColorFlag;
-        if($this->page>0)
-        {
-            // Page footer
-            $this->InFooter = true;
-            $this->Footer();
-            $this->InFooter = false;
-            // Close page
-            $this->_endpage();
+        if ($this->_currPage > 0) {
+            $this->outputFooter();
+            $this->getPage()->_endPage();
         }
-        // Start new page
-        $this->_beginpage($orientation,$size);
-        // Set line cap style to square
+
+        $page->_beginPage($orientation, $size);
         $this->_out('2 J');
-        // Set line width
-        $this->LineWidth = $lw;
-        $this->_out(sprintf('%.2F w',$lw*$this->k));
-        // Set font
-        if($family)
-            $this->SetFont($family,$style,$fontsize);
+        $page->_lineWidth = $this->getPage()->_lineWidth;
+        $this->_out(sprintf('%.2F w',$this->getPage()->_lineWidth * $this->getPage()->_scaleFactor));
+
+        $page->setData($this->getPage()->getData());
         // Set colors
         $this->DrawColor = $dc;
         if($dc!='0 G')
@@ -255,37 +334,76 @@ class PdfDocument {
         }
         $this->TextColor = $tc;
         $this->ColorFlag = $cf;
+
+        $this->_pages[]  = $page;
+        $this->_currPage = count($this->_pages);
+
+        return $page;
+    }
+
+    /**
+     * Begin a new object
+     */
+    function _newobj()
+    {
+        $this->_pdfObjects++;
+        $this->_objectOffsets[$this->_pdfObjects] = strlen($this->_outBuffer);
+        $this->_out($this->_pdfObjects.' 0 obj');
+    }
+
+    /**
+     * Output stream
+     *
+     * @param $s
+     */
+    function _putstream($s)
+    {
+        $this->_out('stream');
+        $this->_out($s);
+        $this->_out('endstream');
+    }
+
+    /**
+     * Output to buffer(s)
+     *
+     * @param $s
+     */
+    public function _out($s)
+    {
+        if ($this->_currState == self::STATE_NEW_PAGE) {
+            $this->getPage()->outBuffer .= $s."\n";
+        } else {
+            $this->_outBuffer .= $s."\n";
+        }
     }
 
     /**
      * Output the PDF, with support for IE contype request
      *
      * @param  string $name
-     * @param  string $dest
+     * @param  string $destination
      * @throws PdfException
      * @return string
      */
-    public function output($name = '', $dest = '')
+    public function output($name = '', $destination = '')
     {
         if (isset($_SERVER['HTTP_USER_AGENT']) && $_SERVER['HTTP_USER_AGENT'] == 'contype') {
             header('Content-Type: application/pdf');
             exit;
         }
-
         if ($this->_currState < self::STATE_END_DOC) {
             $this->close();
         }
-
-        if (empty($dest)) {
+        if (empty($destination)) {
             if (empty($name)) {
-                $name = 'doc.pdf';
-                $dest = 'I';
+                $name        = 'doc.pdf';
+                $destination = 'I';
             } else {
-                $dest = 'F';
+                $destination = 'F';
             }
         }
 
-        switch (strtoupper($dest)) {
+        switch (strtoupper($destination)) {
             case 'I':
                 $this->_checkOutput();
 
@@ -316,7 +434,7 @@ class PdfDocument {
             case 'S':
                 return $this->_outBuffer;
             default:
-                throw new PdfException('Incorrect output destination: '.$dest);
+                throw new PdfException('Incorrect output destination: '.$destination);
         }
         return '';
     }
@@ -333,7 +451,6 @@ class PdfDocument {
                 throw new PdfException("Some data has already been outputted, can't send PDF file (output started at $file:$line)");
             }
         }
-
         if (ob_get_length()) {
             if (preg_match('/^(\xEF\xBB\xBF)?\s*$/', ob_get_contents())) {
                 ob_clean();
@@ -361,7 +478,13 @@ class PdfDocument {
      */
     public function __call($method, $parameters)
     {
-        return call_user_func_array([$this->_pdfPage, $method], $parameters);
+        $className = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
+
+        if ($className) {
+            return call_user_func_array(array($className, $method), $parameters);
+        } else {
+            return call_user_func_array([$this->getPage(), $method], $parameters);
+        }
     }
 
 }

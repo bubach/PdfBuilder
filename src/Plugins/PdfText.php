@@ -1,5 +1,5 @@
 <?php
-namespace bubach\PdfBuilder\Objects;
+namespace bubach\PdfBuilder\Plugins;
 
 use bubach\PdfBuilder\PdfDocument;
 

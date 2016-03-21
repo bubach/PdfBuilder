@@ -1,5 +1,5 @@
 <?php
-namespace bubach\PdfBuilder\Objects;
+namespace bubach\PdfBuilder\Plugins;
 
 use bubach\PdfBuilder\PdfDocument;
 
@@ -15,6 +15,14 @@ class PdfImage {
      */
     public function __construct(PdfDocument $pdfBuilder) {
         $this->_pdfBuilder = $pdfBuilder;
+    }
+
+    /**
+     * ...
+     */
+    public function addImage()
+    {
+        //...
     }
 
 }

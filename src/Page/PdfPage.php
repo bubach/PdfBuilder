@@ -1,14 +1,18 @@
 <?php
 namespace bubach\PdfBuilder\Page;
 
+use bubach\PdfBuilder\PdfDocument;
+use bubach\PdfBuilder\Plugins\PdfImage as PdfImage;
+use bubach\PdfBuilder\Plugins\PdfShape as PdfShape;
+use bubach\PdfBuilder\Plugins\PdfText as PdfText;
 use bubach\PdfBuilder\Exception\PdfException;
 
 class PdfPage {
 
     /**
-     * @var PdfBuilder
+     * @var PdfDocument
      */
-    protected $_pdfBuilder;
+    protected $_pdfDocument;
 
     /**
      * @var array Page sizes
@@ -22,14 +26,9 @@ class PdfPage {
     );
 
     /**
-     * @var array Non default page sizes
-     */
-    protected $_pageSizes = array();
-
-    /**
      * @var float
      */
-    protected $_scaleFactor = 1;
+    public $_scaleFactor = 1;
 
     /**
      * @var array|string
@@ -122,14 +121,32 @@ class PdfPage {
     protected $_layoutMode;
 
     /**
-     * @param PdfBuilder $pdfBuilder
-     * @param string $orientation
-     * @param string $unit
-     * @param string $size
+     * Page settings, in array for easy plugin usage
+     * and copy over to new page.
+     *
+     * @var array
+     */
+    protected $_data = array();
+
+    /**
+     * Output buffer for page content
+     *
+     * @var
+     */
+    public $outBuffer;
+
+    /**
+     * New PDF page, constructor
+     *
+     * @param PdfDocument $pdfDocument
+     * @param string      $orientation
+     * @param string      $unit
+     * @param string      $size
      * @throws PdfException
      */
-    public function __construct(PdfBuilder $pdfBuilder, $orientation = 'P', $unit = 'mm', $size = 'A4') {
-        $this->_pdfBuilder = $pdfBuilder;
+    public function __construct(PdfDocument $pdfDocument, $orientation = 'P', $unit = 'mm', $size = 'A4')
+    {
+        $this->_pdfBuilder = $pdfDocument;
 
         switch ($unit) {
             case 'pt':
@@ -182,10 +199,43 @@ class PdfPage {
     /**
      * Get main document/builder instance
      *
-     * @return PdfBuilder
+     * @return PdfDocument
      */
-    public function getDocument() {
-        return $this->_pdfBuilder;
+    public function getDocument()
+    {
+        return $this->_pdfDocument;
+    }
+
+    /**
+     * Set page data, used by plugins.
+     *
+     * @param  string|array $key
+     * @param  mixed $value
+     * @return PdfDocument
+     */
+    public function setData($key, $value = null)
+    {
+        if (is_array($key)) {
+            $this->_data = $key;
+        } else {
+            $this->_data[$key] = $value;
+        }
+        return $this;
+    }
+
+    /**
+     * Get page data from the object.
+     *
+     * @param  string          $key
+     * @return string | array  $data
+     */
+    public function getData($key = null)
+    {
+        if ($key) {
+            return isset($this->_data[$key]) ? $this->_data[$key] : null;
+        } else {
+            return $this->_data;
+        }
     }
 
     /**
@@ -282,7 +332,7 @@ class PdfPage {
      *
      * @param  $zoom
      * @param  string $layout
-     * @throws Exception\PdfException
+     * @throws PdfException
      */
     public function setDisplayMode($zoom, $layout = 'default')
     {
@@ -311,7 +361,7 @@ class PdfPage {
         //$this->getDocument()->_page++;
         //$this->getDocument()->_pages[$this->getDocument()->_page] = '';
 
-        $builder = $this->_pdfBuilder;
+        $builder = $this->_pdfDocument;
         $builder->setState($builder::STATE_NEW_PAGE);
 
         $this->_x = $this->_lMargin;
@@ -339,17 +389,38 @@ class PdfPage {
             $this->_curPageSize      = $size;
         }
         if ($orientation != $this->_defOrientation || $size[0] != $this->_defPageSize[0] || $size[1] != $this->_defPageSize[1]) {
-            $this->_pageSizes[$this->getDocument()->getCurrPageNo()] = array($this->_wPt, $this->_hPt);
+            $this->getDocument()->pageSizes[$this->getDocument()->getCurrPageNo()] = array($this->_wPt, $this->_hPt);
         }
     }
 
     /**
      * End this page
      */
-    function _endPage()
+    public function _endPage()
     {
-        $builder = $this->_pdfBuilder;
+        $builder = $this->_pdfDocument;
         $builder->setState($builder::STATE_END_PAGE);
+    }
+
+    /**
+     * Call plugin functions, if found in lookup-table
+     *
+     * @param  $method
+     * @param  $parameters
+     * @return mixed
+     */
+    public function __call($method, $parameters = array())
+    {
+        if (is_callable(array($this->getDocument(), $method))) {
+            return call_user_func_array(array($this->getDocument(), $method), $parameters);
+        }
+
+        $className = isset($this->getDocument()->plugins[$method]) ? $this->getDocument()->plugins[$method] : false;
+        if ($className) {
+            return call_user_func_array(array($className, $method), $parameters);
+        } else {
+            return false;
+        }
     }
 
 }
