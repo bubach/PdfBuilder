@@ -1,15 +1,17 @@
 <?php
 namespace bubach\PdfBuilder;
 
-use bubach\PdfBuilder\Page\PdfPage;
+use bubach\PdfBuilder\Core\PdfPage;
 use bubach\PdfBuilder\Exception\PdfException;
+
+define('PDFBUILDER_VERSION','1.00');
 
 class PdfDocument {
 
     /**
      * @var int Current page number
      */
-    protected $_currPage = 0;
+    protected $_curPage = 0;
 
     /**
      * @var int Global number of pdf objects
@@ -34,12 +36,39 @@ class PdfDocument {
     /**
      * @var int Current document state
      */
-    protected $_currState = 1;
+    protected $_curState = 1;
 
     /**
      * @var string PDF version used
      */
     protected $_pdfVersion = '1.3';
+
+    /**
+     * @var null Zoom display mode
+     */
+    protected $_zoomMode;
+
+    /**
+     * @var null Layout mode
+     */
+    protected $_layoutMode;
+
+    /**
+     * @var float
+     */
+    protected $_scaleFactor = 1;
+
+    /**
+     * @var string
+     */
+    protected $_aliasNbPages;
+
+    /**
+     * Internal document links
+     *
+     * @var array
+     */
+    public $internalLinks = array();
 
     /**
      * constants for PDF state
@@ -51,37 +80,40 @@ class PdfDocument {
     /**
      * @var string
      */
-    protected $_stdUnit = 'mm';
+    protected $_defSizeFormat = 'A4';
+
+    /**
+     * @var array
+     */
+    protected $_stdPageSize = array(
+        'a3'     => array(841.89, 1190.55),
+        'a4'     => array(595.28, 841.89),
+        'a5'     => array(420.94, 595.28),
+        'letter' => array(612, 792),
+        'legal'  => array(612, 1008)
+    );
+
+    /**
+     * @var array
+     */
+    protected $_defPageSize = array();
+
+    /**
+     * Non default page sizes
+     *
+     * @var array
+     */
+    protected $_pageSizes;
 
     /**
      * @var string
      */
-    protected $_stdOrientation = 'P';
-
-    /**
-     * @var string
-     */
-    protected $_stdSize = 'A4';
+    protected $_defOrientation = 'P';
 
     /**
      * @var string
      */
     protected $_fontPath = "";
-
-    /**
-     * @var array Non default page sizes
-     */
-    public $pageSizes = array();
-
-    /**
-     * @var bool
-     */
-    public $inHeader = false;
-
-    /**
-     * @var bool
-     */
-    public $inFooter = false;
 
     /**
      * Array holding plugin objects & methods
@@ -90,12 +122,24 @@ class PdfDocument {
      * @var array
      */
     public $plugins = array(
-        'addImage'     => 'PdfImage',
-        'setFont'      => 'PdfText',
-        'addText'      => 'PdfText',
-        'addCircle'    => 'PdfShape',
-        'addRectangle' => 'PdfShape',
+        'addHeader'    => 'bubach\PdfBuilder\Core\PdfHeader',
+        'outputHeader' => 'bubach\PdfBuilder\Core\PdfHeader',
+        'addFooter'    => 'bubach\PdfBuilder\Core\PdfFooter',
+        'outputFooter' => 'bubach\PdfBuilder\Core\PdfFooter',
+        'addImage'     => 'bubach\PdfBuilder\Plugins\PdfImage',
+        'setFont'      => 'bubach\PdfBuilder\Plugins\PdfText',
+        'addText'      => 'bubach\PdfBuilder\Plugins\PdfText',
+        'addCircle'    => 'bubach\PdfBuilder\Plugins\PdfShape',
+        'addRectangle' => 'bubach\PdfBuilder\Plugins\PdfShape',
     );
+
+    /**
+     * Document settings, in array for easy plugin usage
+     * and copy over to new page.
+     *
+     * @var array
+     */
+    public $data = array();
 
     /**
      * PdfBuilder constructor
@@ -109,9 +153,10 @@ class PdfDocument {
     {
         $this->_doChecks();
         $this->setFontPath($fontPath);
-        $this->setStdUnit($unit);
-        $this->setStdOrientation($orientation);
-        $this->setStdSize($size);
+        $this->setScaleFactor($unit);
+        $this->setDefOrientation($orientation);
+        $this->setDefSizeFormat($size);
+        $this->setDisplayMode('default');
     }
 
     /**
@@ -139,6 +184,93 @@ class PdfDocument {
     }
 
     /**
+     * Set unit/scale-factor
+     *
+     * @param  $unit
+     * @return $this
+     * @throws PdfException
+     */
+    public function setScaleFactor($unit)
+    {
+        switch ($unit) {
+            case 'pt':
+                $this->_scaleFactor = 1;
+                break;
+            case 'mm':
+                $this->_scaleFactor = 72/25.4;
+                break;
+            case 'cm':
+                $this->_scaleFactor = 72/2.54;
+                break;
+            case 'in':
+                $this->_scaleFactor = 72;
+                break;
+            default:
+                throw new PdfException('Incorrect unit: '.$unit);;
+        }
+        return $this;
+    }
+
+    /**
+     * Get document scale-factor
+     *
+     * @return float
+     */
+    public function getScaleFactor()
+    {
+        return $this->_scaleFactor;
+    }
+
+    /**
+     * Add non-default page-size
+     *
+     * @param  $wPt
+     * @param  $hPt
+     * @return $this
+     */
+    public function addPageSize($wPt, $hPt)
+    {
+        $this->_pageSizes[$this->_curPage] = array($wPt, $hPt);
+        return $this;
+    }
+
+    /**
+     * Get the standard page size(s)
+     *
+     * @param  $number
+     * @return array|bool
+     */
+    public function getStdPageSize($number = false)
+    {
+        if ($number) {
+            return isset($this->_stdPageSize[$number]) ? $this->_stdPageSize[$number] : false;
+        }
+        return $this->_stdPageSize;
+    }
+
+    /**
+     * Set the default page size
+     *
+     * @param  $size
+     * @return $this
+     */
+    public function setDefPageSize($size)
+    {
+        $this->_defPageSize = $size;
+        return $this;
+    }
+
+    /**
+     * Get default page-size
+     *
+     * @return array
+     */
+    public function getDefPageSize()
+    {
+        return $this->_defPageSize;
+    }
+
+    /**
      * @return string
      */
     public function getFontPath()
@@ -147,59 +279,57 @@ class PdfDocument {
     }
 
     /**
-     * @param string $fontPath
+     * Set the font path
+     *
+     * @param  string $fontPath
+     * @return $this
      */
     public function setFontPath($fontPath)
     {
         $this->_fontPath = $fontPath;
+        return $this;
     }
 
     /**
+     * Get default orientation
+     *
      * @return string
      */
-    public function getStdUnit()
+    public function getDefOrientation()
     {
-        return $this->_stdUnit;
+        return $this->_defOrientation;
     }
 
     /**
-     * @param string $stdUnit
+     * Set default orientation
+     *
+     * @param  string $defOrientation
+     * @return $this
      */
-    public function setStdUnit($stdUnit)
+    public function setDefOrientation($defOrientation)
     {
-        $this->_stdUnit = $stdUnit;
+        $this->_defOrientation = $defOrientation;
+        return $this;
     }
 
     /**
+     * Get default size format
+     *
      * @return string
      */
-    public function getStdOrientation()
+    public function getDefSizeFormat()
     {
-        return $this->_stdOrientation;
+        return $this->_defSizeFormat;
     }
 
     /**
-     * @param string $stdOrientation
+     * Set default size format
+     *
+     * @param string $defSizeFormat
      */
-    public function setStdOrientation($stdOrientation)
+    public function setDefSizeFormat($defSizeFormat)
     {
-        $this->_stdOrientation = $stdOrientation;
-    }
-
-    /**
-     * @return string
-     */
-    public function getStdSize()
-    {
-        return $this->_stdSize;
-    }
-
-    /**
-     * @param string $stdSize
-     */
-    public function setStdSize($stdSize)
-    {
-        $this->_stdSize = $stdSize;
+        $this->_defSizeFormat = $defSizeFormat;
     }
 
     /**
@@ -209,7 +339,7 @@ class PdfDocument {
      */
     public function setState($state)
     {
-        $this->_currState = $state;
+        $this->_curState = $state;
     }
 
     /**
@@ -219,15 +349,15 @@ class PdfDocument {
      */
     public function getState()
     {
-        return $this->_currState;
+        return $this->_curState;
     }
 
     /**
      * @return int Current page number
      */
-    public function getCurrPageNo()
+    public function getCurPageNo()
     {
-        return $this->_currPage;
+        return $this->_curPage;
     }
 
     /**
@@ -246,19 +376,44 @@ class PdfDocument {
     }
 
     /**
+     * Set display mode in viewer
+     *
+     * @param  $zoom
+     * @param  string $layout
+     * @throws PdfException
+     */
+    public function setDisplayMode($zoom, $layout = 'default')
+    {
+        $zoomModes   = array('fullpage', 'fullwidth', 'real', 'default');
+        $layoutModes = array('single', 'continuous', 'two', 'default');
+
+        if ( !is_string($zoom) || in_array($zoom, $zoomModes) ) {
+            $this->_zoomMode = $zoom;
+        } else {
+            throw new PdfException('Incorrect zoom display mode: '.$zoom);
+        }
+
+        if ( in_array($layout, $layoutModes)) {
+            $this->_layoutMode = $layout;
+        } else {
+            throw new PdfException('Incorrect layout display mode: '.$layout);
+        }
+    }
+
+    /**
      * close the document
      */
     public function close()
     {
-        if ($this->_currState == self::STATE_END_DOC) {
+        if ($this->_curState == self::STATE_END_DOC) {
             return;
         }
-        if ($this->_currPage == 0) {
+        if ($this->_curPage == 0) {
             $this->addPage();
         }
 
         $this->outputFooter();
-        $this->_endpage();
+        $this->setState(self::STATE_END_PAGE);
         $this->_enddoc();
     }
 
@@ -267,76 +422,43 @@ class PdfDocument {
      */
     public function getPage($number = null)
     {
-        $number = empty($number) ? $this->getCurrPageNo() : $number;
-        return isset($this->_pages[$number]) ? $this->_pages[$number] : $this->addPage();
+        $number = empty($number) ? $this->getCurPageNo() : $number;
+        return isset($this->_pages[$number - 1]) ? $this->_pages[$number - 1] : $this->addPage();
     }
 
     /**
      * Add new PDF page to document
      *
      * @param  string  $orientation
-     * @param  string  $unit
      * @param  string  $size
      * @return PdfPage
      */
-    public function addPage($orientation = '', $unit = '',  $size = '')
+    public function addPage($orientation = '',  $size = '')
     {
-        $orientation = empty($orientation) ? $this->_stdOrientation : $orientation;
-        $unit        = empty($unit) ? $this->_stdUnit : $unit;
-        $size        = empty($size) ? $this->_stdSize : $size;
-        $page        = new PdfPage($this, $orientation, $unit, $size);
+        $this->_curState = self::STATE_END_PAGE;
 
-        $this->_currState = self::STATE_END_PAGE;
-
-        if ($this->_currPage > 0) {
+        if ($this->_curPage > 0) {
             $this->outputFooter();
-            $this->getPage()->_endPage();
+            $this->setState(self::STATE_END_PAGE);
+
+            $orientation = empty($orientation) ? $this->getPage()->getOrientation() : $orientation;
+            $size        = empty($size) ? $this->getPage()->getCurPageSize() : $size;
+            $page        = new PdfPage($this, $orientation, $size);
+
+            $page->setData($this->getPage()->getData());
+        } else {
+            $orientation = empty($orientation) ? $this->_defOrientation : $orientation;
+            $size        = empty($size) ? $this->_defSizeFormat : $size;
+            $page        = new PdfPage($this, $orientation, $size);
+
+            $this->setDefPageSize($page->getCurPageSize());
         }
 
-        $page->_beginPage($orientation, $size);
+        $this->_pages[] = $page;
+        $this->_curPage++;
+        $this->setState(self::STATE_NEW_PAGE);
         $this->_out('2 J');
-        $page->_lineWidth = $this->getPage()->_lineWidth;
-        $this->_out(sprintf('%.2F w',$this->getPage()->_lineWidth * $this->getPage()->_scaleFactor));
-
-        $page->setData($this->getPage()->getData());
-        // Set colors
-        $this->DrawColor = $dc;
-        if($dc!='0 G')
-            $this->_out($dc);
-        $this->FillColor = $fc;
-        if($fc!='0 g')
-            $this->_out($fc);
-        $this->TextColor = $tc;
-        $this->ColorFlag = $cf;
-        // Page header
-        $this->InHeader = true;
-        $this->Header();
-        $this->InHeader = false;
-        // Restore line width
-        if($this->LineWidth!=$lw)
-        {
-            $this->LineWidth = $lw;
-            $this->_out(sprintf('%.2F w',$lw*$this->k));
-        }
-        // Restore font
-        if($family)
-            $this->SetFont($family,$style,$fontsize);
-        // Restore colors
-        if($this->DrawColor!=$dc)
-        {
-            $this->DrawColor = $dc;
-            $this->_out($dc);
-        }
-        if($this->FillColor!=$fc)
-        {
-            $this->FillColor = $fc;
-            $this->_out($fc);
-        }
-        $this->TextColor = $tc;
-        $this->ColorFlag = $cf;
-
-        $this->_pages[]  = $page;
-        $this->_currPage = count($this->_pages);
+        $this->outputHeader();
 
         return $page;
     }
@@ -344,7 +466,7 @@ class PdfDocument {
     /**
      * Begin a new object
      */
-    function _newobj()
+    public function _newobj()
     {
         $this->_pdfObjects++;
         $this->_objectOffsets[$this->_pdfObjects] = strlen($this->_outBuffer);
@@ -370,11 +492,283 @@ class PdfDocument {
      */
     public function _out($s)
     {
-        if ($this->_currState == self::STATE_NEW_PAGE) {
+        if ($this->_curState == self::STATE_NEW_PAGE) {
             $this->getPage()->outBuffer .= $s."\n";
         } else {
             $this->_outBuffer .= $s."\n";
         }
+    }
+
+    /**
+     * Output document resources and close document
+     */
+    protected function _enddoc()
+    {
+        $this->_putHeader();
+        $this->_putPages();
+        $this->_putResources();
+
+        $this->_putInfo();
+        $this->_putCatalog();
+
+        $o = strlen($this->_outBuffer);
+        $this->_putXRef();
+        $this->_putTrailer($o);
+        $this->setState(self::STATE_END_DOC);
+    }
+
+    function _putXObjectDict()
+    {
+        $images = array(); // TODO: placeholder for $this->images
+
+        foreach ($images as $image) {
+            $this->_out('/I'.$image['i'].' '.$image['n'].' 0 R');
+        }
+    }
+
+    protected function _putResourceDict()
+    {
+        $this->_out('/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]');
+        $this->_out('/Font <<');
+
+        $fonts = array();// TODO: placeholder for $this->fonts
+
+        foreach ($fonts as $font) {
+            $this->_out('/F'.$font['i'].' '.$font['n'].' 0 R');
+        }
+
+        $this->_out('>>');
+        $this->_out('/XObject <<');
+        $this->_putxobjectdict();
+        $this->_out('>>');
+    }
+
+    protected function _putResources()
+    {
+        //$this->_putfonts();
+        //$this->_putimages();
+
+        $this->_objectOffsets[2] = strlen($this->_outBuffer);
+        $this->_out('2 0 obj');
+        $this->_out('<<');
+        $this->_putResourceDict();
+        $this->_out('>>');
+        $this->_out('endobj');
+    }
+
+    /**
+     * Output page data
+     */
+    protected function _putPages()
+    {
+        $nb = $this->_curPage;
+
+        if (!empty($this->_aliasNbPages)) {
+            $alias = $this->UTF8ToUTF16BE($this->_aliasNbPages, false);
+            $r     = $this->UTF8ToUTF16BE("$nb", false);
+
+            for ($n = 1; $n <= $nb; $n++) {
+                $this->getPage($n)->pageBuffer = str_replace($alias, $r, $this->getPage($n)->pageBuffer);
+            }
+            for ($n = 1; $n <= $nb; $n++) {
+                $this->getPage($n)->pageBuffer = str_replace($this->_aliasNbPages, $nb, $this->getPage($n)->pageBuffer);
+            }
+        }
+
+        if ($this->_defOrientation == 'P') {
+            $wPt = $this->_defPageSize[0] * $this->_scaleFactor;
+            $hPt = $this->_defPageSize[1] * $this->_scaleFactor;
+        } else {
+            $wPt = $this->_defPageSize[1] * $this->_scaleFactor;
+            $hPt = $this->_defPageSize[0] * $this->_scaleFactor;
+        }
+
+        $filter = empty($this->_compress) ? '/Filter /FlateDecode ' : '';
+
+        for ($n = 1; $n <= $nb; $n++) {
+            $this->_newobj();
+            $this->_out('<</Type /Page');
+            $this->_out('/Parent 1 0 R');
+
+            if (isset($this->_pageSizes[$n])) {
+                $this->_out(sprintf('/MediaBox [0 0 %.2F %.2F]',$this->_pageSizes[$n][0], $this->_pageSizes[$n][1]));
+            }
+
+            $this->_out('/Resources 2 0 R');
+
+            if (!empty($this->getPage($n)->pageLinks)) {
+                $annots = '/Annots [';
+
+                foreach($this->getPage($n)->pageLinks as $pl) {
+                    $rect    = sprintf('%.2F %.2F %.2F %.2F', $pl[0], $pl[1], $pl[0] + $pl[2], $pl[1] - $pl[3]);
+                    $annots .= '<</Type /Annot /Subtype /Link /Rect ['.$rect.'] /Border [0 0 0] ';
+
+                    if (is_string($pl[4])) {
+                        $annots .= '/A <</S /URI /URI '.$this->_textstring($pl[4]).'>>>>';
+                    } else {
+                        $l = $this->internalLinks[$pl[4]];
+                        $h = isset($this->_pageSizes[$l[0]]) ? $this->_pageSizes[$l[0]][1] : $hPt;
+                        $annots .= sprintf('/Dest [%d 0 R /XYZ 0 %.2F null]>>', 1 + 2 * $l[0], $h - $l[1] * $this->_scaleFactor);
+                    }
+                }
+                $this->_out($annots.']');
+            }
+
+            if ($this->_pdfVersion > '1.3') {
+                $this->_out('/Group <</Type /Group /S /Transparency /CS /DeviceRGB>>');
+            }
+
+            $this->_out('/Contents '.($this->_pdfObjects + 1).' 0 R>>');
+            $this->_out('endobj');
+
+            $p = empty($this->_compress) ? gzcompress($this->getPage($n)->pageBuffer) : $this->getPage($n)->pageBuffer;
+            $this->_newobj();
+            $this->_out('<<'.$filter.'/Length '.strlen($p).'>>');
+            $this->_putstream($p);
+            $this->_out('endobj');
+        }
+
+        $this->_objectOffsets[1] = strlen($this->_outBuffer);
+        $this->_out('1 0 obj');
+        $this->_out('<</Type /Pages');
+        $kids = '/Kids [';
+
+        for ($i = 0; $i < $nb; $i++) {
+            $kids .= ( 3 + 2 * $i).' 0 R ';
+        }
+        $this->_out($kids.']');
+        $this->_out('/Count '.$nb);
+        $this->_out(sprintf('/MediaBox [0 0 %.2F %.2F]', $wPt, $hPt));
+        $this->_out('>>');
+        $this->_out('endobj');
+    }
+
+    /**
+     * Output cross-references
+     */
+    protected function _putXRef()
+    {
+        $this->_out('xref');
+        $this->_out('0 '.($this->_pdfObjects + 1));
+        $this->_out('0000000000 65535 f ');
+
+        for ($i = 1; $i <= $this->_pdfObjects; $i++) {
+            $this->_out(sprintf('%010d 00000 n ', $this->_objectOffsets[$i]));
+        }
+    }
+
+    /**
+     * Output PDF header
+     */
+    protected function _putHeader()
+    {
+        $this->_out('%PDF-'.$this->_pdfVersion);
+    }
+
+    /**
+     * Output PDF trailer
+     *
+     * @param $o
+     */
+    protected function _putTrailer($o)
+    {
+        $this->_out('trailer');
+        $this->_out('<<');
+        $this->_out('/Size '.($this->_pdfObjects + 1));
+        $this->_out('/Root '.$this->_pdfObjects.' 0 R');
+        $this->_out('/Info '.($this->_pdfObjects - 1).' 0 R');
+        $this->_out('>>');
+        $this->_out('startxref');
+        $this->_out($o);
+        $this->_out('%%EOF');
+    }
+
+    /**
+     * Output document presentation information
+     */
+    protected function _putCatalog()
+    {
+        $this->_newobj();
+        $this->_out('<<');
+        $this->_out('/Type /Catalog');
+        $this->_out('/Pages 1 0 R');
+
+        if ($this->_zoomMode == 'fullpage') {
+            $this->_out('/OpenAction [3 0 R /Fit]');
+        } elseif ($this->_zoomMode == 'fullwidth') {
+            $this->_out('/OpenAction [3 0 R /FitH null]');
+        } elseif ($this->_zoomMode == 'real') {
+            $this->_out('/OpenAction [3 0 R /XYZ null null 1]');
+        } elseif (!is_string($this->_zoomMode)) {
+            $this->_out('/OpenAction [3 0 R /XYZ null null '.sprintf('%.2F',$this->_zoomMode / 100).']');
+        }
+
+        if ($this->_layoutMode == 'single') {
+            $this->_out('/PageLayout /SinglePage');
+        } elseif ($this->_layoutMode == 'continuous') {
+            $this->_out('/PageLayout /OneColumn');
+        } elseif ($this->_layoutMode == 'two') {
+            $this->_out('/PageLayout /TwoColumnLeft');
+        }
+
+        $this->_out('>>');
+        $this->_out('endobj');
+    }
+
+    /**
+     * Output PDF document meta-information
+     */
+    protected function _putInfo()
+    {
+        $this->_newobj();
+        $this->_out('<<');
+
+        $this->_out('/Producer '.$this->_textstring('PdfBuilder '.PDFBUILDER_VERSION));
+        if (!empty($this->title)) {
+            $this->_out('/Title '.$this->_textstring($this->title));
+        }
+        if (!empty($this->subject)) {
+            $this->_out('/Subject '.$this->_textstring($this->subject));
+        }
+        if (!empty($this->author)) {
+            $this->_out('/Author '.$this->_textstring($this->author));
+        }
+        if (!empty($this->keywords)) {
+            $this->_out('/Keywords '.$this->_textstring($this->keywords));
+        }
+        if (!empty($this->creator)) {
+            $this->_out('/Creator '.$this->_textstring($this->creator));
+        }
+        $this->_out('/CreationDate '.$this->_textstring('D:'.@date('YmdHis')));
+
+        $this->_out('>>');
+        $this->_out('endobj');
+    }
+
+    /**
+     * Format a text string
+     *
+     * @param  $s
+     * @return string
+     */
+    protected function _textstring($s)
+    {
+        return '('.$this->_escape($s).')';
+    }
+
+    /**
+     * Escape special characters in strings
+     *
+     * @param  $s
+     * @return string
+     */
+    protected function _escape($s)
+    {
+        $s = str_replace('\\','\\\\',$s);
+        $s = str_replace('(','\\(',$s);
+        $s = str_replace(')','\\)',$s);
+        $s = str_replace("\r",'\\r',$s);
+        return $s;
     }
 
     /**
@@ -391,7 +785,7 @@ class PdfDocument {
             header('Content-Type: application/pdf');
             exit;
         }
-        if ($this->_currState < self::STATE_END_DOC) {
+        if ($this->_curState < self::STATE_END_DOC) {
             $this->close();
         }
         if (empty($destination)) {
@@ -470,6 +864,44 @@ class PdfDocument {
     }
 
     /**
+     * Magic getter, checks plugins first.
+     *
+     * @param  $name
+     * @return string
+     */
+    public function __get($name)
+    {
+        $method    = "get".ucfirst($name);
+        $className = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
+
+        if ($className) {
+            return call_user_func(array($className, $method));
+        } else {
+            return isset($this->data[$name]) ? $this->data[$name] : false;
+        }
+    }
+
+    /**
+     * Magic setter, checks plugins first
+     *
+     * @param  $name
+     * @param  $value
+     * @return mixed
+     */
+    public function __set($name, $value)
+    {
+        $method    = "set".ucfirst($name);
+        $className = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
+
+        if ($className) {
+            return call_user_func_array(array($className, $method), array($value));
+        } else {
+            $this->data[$name] = $value;
+            return $this;
+        }
+    }
+
+    /**
      * Call PdfPage functions
      *
      * @param  $method
@@ -481,9 +913,10 @@ class PdfDocument {
         $className = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
 
         if ($className) {
-            return call_user_func_array(array($className, $method), $parameters);
+            $class = new $className($this);
+            return call_user_func_array(array($class, $method), $parameters);
         } else {
-            return call_user_func_array([$this->getPage(), $method], $parameters);
+            return call_user_func_array(array($this->getPage(), $method), $parameters);
         }
     }
 
