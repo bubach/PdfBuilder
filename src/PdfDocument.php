@@ -2,6 +2,7 @@
 namespace bubach\PdfBuilder;
 
 use bubach\PdfBuilder\Core\PdfPage;
+use bubach\PdfBuilder\Core\PdfOutput;
 use bubach\PdfBuilder\Exception\PdfException;
 
 define('PDFBUILDER_VERSION','1.00');
@@ -24,11 +25,6 @@ class PdfDocument {
     protected $_objectOffsets = array();
 
     /**
-     * @var string PDF output buffer
-     */
-    protected $_outBuffer = '';
-
-    /**
      * @var array PDF pages
      */
     protected $_pages = array();
@@ -41,7 +37,7 @@ class PdfDocument {
     /**
      * @var string PDF version used
      */
-    protected $_pdfVersion = '1.3';
+    public $pdfVersion = '1.3';
 
     /**
      * @var null Zoom display mode
@@ -142,6 +138,11 @@ class PdfDocument {
     public $data = array();
 
     /**
+     * @var PdfOutput
+     */
+    protected $_pdfOutput;
+
+    /**
      * PdfBuilder constructor
      *
      * @param string $orientation
@@ -157,6 +158,8 @@ class PdfDocument {
         $this->setDefOrientation($orientation);
         $this->setDefSizeFormat($size);
         $this->setDisplayMode('default');
+
+        $this->_pdfOutput = new PdfOutput($this);
     }
 
     /**
@@ -232,6 +235,17 @@ class PdfDocument {
     {
         $this->_pageSizes[$this->_curPage] = array($wPt, $hPt);
         return $this;
+    }
+
+    /**
+     * Get custom page size
+     *
+     * @param  $number
+     * @return bool
+     */
+    public function getPageSize($number)
+    {
+        return isset($this->_pageSizes[$number]) ? $this->_pageSizes[$number] : false;
     }
 
     /**
@@ -361,6 +375,26 @@ class PdfDocument {
     }
 
     /**
+     * Get document zoom mode
+     *
+     * @return null
+     */
+    public function getZoomMode()
+    {
+        return $this->_zoomMode;
+    }
+
+    /**
+     * Get document layout mode
+     *
+     * @return null
+     */
+    public function getLayoutMode()
+    {
+        return $this->_layoutMode;
+    }
+
+    /**
      * Add plugin, will use all public methods except constructor
      *
      * $param string  Loaded class-name
@@ -414,7 +448,7 @@ class PdfDocument {
 
         $this->outputFooter();
         $this->setState(self::STATE_END_PAGE);
-        $this->_enddoc();
+        $this->_pdfOutput->endDoc();
     }
 
     /**
@@ -469,20 +503,36 @@ class PdfDocument {
     public function _newobj()
     {
         $this->_pdfObjects++;
-        $this->_objectOffsets[$this->_pdfObjects] = strlen($this->_outBuffer);
+        $this->_objectOffsets[$this->_pdfObjects] = strlen($this->_pdfOutput->outBuffer);
         $this->_out($this->_pdfObjects.' 0 obj');
     }
 
     /**
-     * Output stream
-     *
-     * @param $s
+     * @return int
      */
-    function _putstream($s)
+    public function getPdfObjects()
     {
-        $this->_out('stream');
-        $this->_out($s);
-        $this->_out('endstream');
+        return $this->_pdfObjects;
+    }
+
+    /**
+     * @param  $number
+     * @return bool
+     */
+    public function getPdfObjectOffset($number)
+    {
+        return isset($this->_objectOffsets[$number]) ? $this->_objectOffsets[$number] : false;
+    }
+
+    /**
+     * @param $number
+     * @param $value
+     * @return $this
+     */
+    public function setPdfObjectOffset($number, $value)
+    {
+        $this->_objectOffsets[$number] = $value;
+        return $this;
     }
 
     /**
@@ -495,280 +545,8 @@ class PdfDocument {
         if ($this->_curState == self::STATE_NEW_PAGE) {
             $this->getPage()->outBuffer .= $s."\n";
         } else {
-            $this->_outBuffer .= $s."\n";
+            $this->_pdfOutput->outBuffer .= $s."\n";
         }
-    }
-
-    /**
-     * Output document resources and close document
-     */
-    protected function _enddoc()
-    {
-        $this->_putHeader();
-        $this->_putPages();
-        $this->_putResources();
-
-        $this->_putInfo();
-        $this->_putCatalog();
-
-        $o = strlen($this->_outBuffer);
-        $this->_putXRef();
-        $this->_putTrailer($o);
-        $this->setState(self::STATE_END_DOC);
-    }
-
-    function _putXObjectDict()
-    {
-        $images = array(); // TODO: placeholder for $this->images
-
-        foreach ($images as $image) {
-            $this->_out('/I'.$image['i'].' '.$image['n'].' 0 R');
-        }
-    }
-
-    protected function _putResourceDict()
-    {
-        $this->_out('/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]');
-        $this->_out('/Font <<');
-
-        $fonts = array();// TODO: placeholder for $this->fonts
-
-        foreach ($fonts as $font) {
-            $this->_out('/F'.$font['i'].' '.$font['n'].' 0 R');
-        }
-
-        $this->_out('>>');
-        $this->_out('/XObject <<');
-        $this->_putxobjectdict();
-        $this->_out('>>');
-    }
-
-    protected function _putResources()
-    {
-        //$this->_putfonts();
-        //$this->_putimages();
-
-        $this->_objectOffsets[2] = strlen($this->_outBuffer);
-        $this->_out('2 0 obj');
-        $this->_out('<<');
-        $this->_putResourceDict();
-        $this->_out('>>');
-        $this->_out('endobj');
-    }
-
-    /**
-     * Output page data
-     */
-    protected function _putPages()
-    {
-        $nb = $this->_curPage;
-
-        if (!empty($this->_aliasNbPages)) {
-            $alias = $this->UTF8ToUTF16BE($this->_aliasNbPages, false);
-            $r     = $this->UTF8ToUTF16BE("$nb", false);
-
-            for ($n = 1; $n <= $nb; $n++) {
-                $this->getPage($n)->pageBuffer = str_replace($alias, $r, $this->getPage($n)->pageBuffer);
-            }
-            for ($n = 1; $n <= $nb; $n++) {
-                $this->getPage($n)->pageBuffer = str_replace($this->_aliasNbPages, $nb, $this->getPage($n)->pageBuffer);
-            }
-        }
-
-        if ($this->_defOrientation == 'P') {
-            $wPt = $this->_defPageSize[0] * $this->_scaleFactor;
-            $hPt = $this->_defPageSize[1] * $this->_scaleFactor;
-        } else {
-            $wPt = $this->_defPageSize[1] * $this->_scaleFactor;
-            $hPt = $this->_defPageSize[0] * $this->_scaleFactor;
-        }
-
-        $filter = empty($this->_compress) ? '/Filter /FlateDecode ' : '';
-
-        for ($n = 1; $n <= $nb; $n++) {
-            $this->_newobj();
-            $this->_out('<</Type /Page');
-            $this->_out('/Parent 1 0 R');
-
-            if (isset($this->_pageSizes[$n])) {
-                $this->_out(sprintf('/MediaBox [0 0 %.2F %.2F]',$this->_pageSizes[$n][0], $this->_pageSizes[$n][1]));
-            }
-
-            $this->_out('/Resources 2 0 R');
-
-            if (!empty($this->getPage($n)->pageLinks)) {
-                $annots = '/Annots [';
-
-                foreach($this->getPage($n)->pageLinks as $pl) {
-                    $rect    = sprintf('%.2F %.2F %.2F %.2F', $pl[0], $pl[1], $pl[0] + $pl[2], $pl[1] - $pl[3]);
-                    $annots .= '<</Type /Annot /Subtype /Link /Rect ['.$rect.'] /Border [0 0 0] ';
-
-                    if (is_string($pl[4])) {
-                        $annots .= '/A <</S /URI /URI '.$this->_textstring($pl[4]).'>>>>';
-                    } else {
-                        $l = $this->internalLinks[$pl[4]];
-                        $h = isset($this->_pageSizes[$l[0]]) ? $this->_pageSizes[$l[0]][1] : $hPt;
-                        $annots .= sprintf('/Dest [%d 0 R /XYZ 0 %.2F null]>>', 1 + 2 * $l[0], $h - $l[1] * $this->_scaleFactor);
-                    }
-                }
-                $this->_out($annots.']');
-            }
-
-            if ($this->_pdfVersion > '1.3') {
-                $this->_out('/Group <</Type /Group /S /Transparency /CS /DeviceRGB>>');
-            }
-
-            $this->_out('/Contents '.($this->_pdfObjects + 1).' 0 R>>');
-            $this->_out('endobj');
-
-            $p = empty($this->_compress) ? gzcompress($this->getPage($n)->pageBuffer) : $this->getPage($n)->pageBuffer;
-            $this->_newobj();
-            $this->_out('<<'.$filter.'/Length '.strlen($p).'>>');
-            $this->_putstream($p);
-            $this->_out('endobj');
-        }
-
-        $this->_objectOffsets[1] = strlen($this->_outBuffer);
-        $this->_out('1 0 obj');
-        $this->_out('<</Type /Pages');
-        $kids = '/Kids [';
-
-        for ($i = 0; $i < $nb; $i++) {
-            $kids .= ( 3 + 2 * $i).' 0 R ';
-        }
-        $this->_out($kids.']');
-        $this->_out('/Count '.$nb);
-        $this->_out(sprintf('/MediaBox [0 0 %.2F %.2F]', $wPt, $hPt));
-        $this->_out('>>');
-        $this->_out('endobj');
-    }
-
-    /**
-     * Output cross-references
-     */
-    protected function _putXRef()
-    {
-        $this->_out('xref');
-        $this->_out('0 '.($this->_pdfObjects + 1));
-        $this->_out('0000000000 65535 f ');
-
-        for ($i = 1; $i <= $this->_pdfObjects; $i++) {
-            $this->_out(sprintf('%010d 00000 n ', $this->_objectOffsets[$i]));
-        }
-    }
-
-    /**
-     * Output PDF header
-     */
-    protected function _putHeader()
-    {
-        $this->_out('%PDF-'.$this->_pdfVersion);
-    }
-
-    /**
-     * Output PDF trailer
-     *
-     * @param $o
-     */
-    protected function _putTrailer($o)
-    {
-        $this->_out('trailer');
-        $this->_out('<<');
-        $this->_out('/Size '.($this->_pdfObjects + 1));
-        $this->_out('/Root '.$this->_pdfObjects.' 0 R');
-        $this->_out('/Info '.($this->_pdfObjects - 1).' 0 R');
-        $this->_out('>>');
-        $this->_out('startxref');
-        $this->_out($o);
-        $this->_out('%%EOF');
-    }
-
-    /**
-     * Output document presentation information
-     */
-    protected function _putCatalog()
-    {
-        $this->_newobj();
-        $this->_out('<<');
-        $this->_out('/Type /Catalog');
-        $this->_out('/Pages 1 0 R');
-
-        if ($this->_zoomMode == 'fullpage') {
-            $this->_out('/OpenAction [3 0 R /Fit]');
-        } elseif ($this->_zoomMode == 'fullwidth') {
-            $this->_out('/OpenAction [3 0 R /FitH null]');
-        } elseif ($this->_zoomMode == 'real') {
-            $this->_out('/OpenAction [3 0 R /XYZ null null 1]');
-        } elseif (!is_string($this->_zoomMode)) {
-            $this->_out('/OpenAction [3 0 R /XYZ null null '.sprintf('%.2F',$this->_zoomMode / 100).']');
-        }
-
-        if ($this->_layoutMode == 'single') {
-            $this->_out('/PageLayout /SinglePage');
-        } elseif ($this->_layoutMode == 'continuous') {
-            $this->_out('/PageLayout /OneColumn');
-        } elseif ($this->_layoutMode == 'two') {
-            $this->_out('/PageLayout /TwoColumnLeft');
-        }
-
-        $this->_out('>>');
-        $this->_out('endobj');
-    }
-
-    /**
-     * Output PDF document meta-information
-     */
-    protected function _putInfo()
-    {
-        $this->_newobj();
-        $this->_out('<<');
-
-        $this->_out('/Producer '.$this->_textstring('PdfBuilder '.PDFBUILDER_VERSION));
-        if (!empty($this->title)) {
-            $this->_out('/Title '.$this->_textstring($this->title));
-        }
-        if (!empty($this->subject)) {
-            $this->_out('/Subject '.$this->_textstring($this->subject));
-        }
-        if (!empty($this->author)) {
-            $this->_out('/Author '.$this->_textstring($this->author));
-        }
-        if (!empty($this->keywords)) {
-            $this->_out('/Keywords '.$this->_textstring($this->keywords));
-        }
-        if (!empty($this->creator)) {
-            $this->_out('/Creator '.$this->_textstring($this->creator));
-        }
-        $this->_out('/CreationDate '.$this->_textstring('D:'.@date('YmdHis')));
-
-        $this->_out('>>');
-        $this->_out('endobj');
-    }
-
-    /**
-     * Format a text string
-     *
-     * @param  $s
-     * @return string
-     */
-    protected function _textstring($s)
-    {
-        return '('.$this->_escape($s).')';
-    }
-
-    /**
-     * Escape special characters in strings
-     *
-     * @param  $s
-     * @return string
-     */
-    protected function _escape($s)
-    {
-        $s = str_replace('\\','\\\\',$s);
-        $s = str_replace('(','\\(',$s);
-        $s = str_replace(')','\\)',$s);
-        $s = str_replace("\r",'\\r',$s);
-        return $s;
     }
 
     /**
@@ -807,7 +585,7 @@ class PdfDocument {
                     header('Cache-Control: private, max-age=0, must-revalidate');
                     header('Pragma: public');
                 }
-                echo $this->_outBuffer;
+                echo $this->_pdfOutput->outBuffer;
                 break;
             case 'D':
                 $this->_checkOutput();
@@ -815,18 +593,18 @@ class PdfDocument {
                 header('Content-Disposition: attachment; filename="'.$name.'"');
                 header('Cache-Control: private, max-age=0, must-revalidate');
                 header('Pragma: public');
-                echo $this->_outBuffer;
+                echo $this->_pdfOutput->outBuffer;
                 break;
             case 'F':
                 $f = fopen($name,'wb');
                 if (!$f) {
                     throw new PdfException('Unable to create output file: '.$name);
                 }
-                fwrite($f, $this->_outBuffer, strlen($this->_outBuffer));
+                fwrite($f, $this->_pdfOutput->outBuffer, strlen($this->_pdfOutput->outBuffer));
                 fclose($f);
                 break;
             case 'S':
-                return $this->_outBuffer;
+                return $this->_pdfOutput->outBuffer;
             default:
                 throw new PdfException('Incorrect output destination: '.$destination);
         }
