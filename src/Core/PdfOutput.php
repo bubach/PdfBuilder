@@ -2,6 +2,7 @@
 namespace bubach\PdfBuilder\Core;
 
 use bubach\PdfBuilder\PdfDocument;
+use bubach\PdfBuilder\Exception\PdfException;
 
 class PdfOutput {
 
@@ -140,7 +141,7 @@ class PdfOutput {
             $this->_pdfDocument->_out('<</Type /Page');
             $this->_pdfDocument->_out('/Parent 1 0 R');
 
-            if ($pageSize = $this->_pdfDocument->getPageSize($n)) {
+            if ($pageSize = $this->_pdfDocument->getPageSize($n - 1)) {
                 $this->_pdfDocument->_out(sprintf('/MediaBox [0 0 %.2F %.2F]', $pageSize[0], $pageSize[1]));
             }
 

@@ -8,12 +8,7 @@ class PdfText {
     /**
      * @var PdfDocument
      */
-    protected $_pdfBuilder;
-
-    /**
-     * @var string
-     */
-    protected $_fontPath = '';
+    protected $_pdfDocument;
 
     protected $_coreFonts = array(
         'courier',
@@ -24,34 +19,20 @@ class PdfText {
     );
 
     /**
-     * @param PdfDocument $pdfBuilder
-     * @param null $fontpath
+     * Constructor
+     *
+     * @param PdfDocument $pdfDocument
      */
-    public function __construct(PdfDocument $pdfBuilder, $fontpath = null) {
-        $this->_pdfBuilder = $pdfBuilder;
+    public function __construct(PdfDocument $pdfDocument) {
+        $this->_pdfBuilder = $pdfDocument;
 
-        if ($fontpath) {
-            $this->_fontPath = $fontpath;
-            if (substr($this->_fontPath, -1) != '/' && substr($this->_fontPath, -1) != '\\') {
-                $this->_fontPath .= '/';
+        if ($fontpath = $pdfDocument->getFontPath()) {
+            if (substr($fontpath, -1) != '/' && substr($fontpath, -1) != '\\') {
+                $pdfDocument->setFontPath($fontpath.'/');
             }
         } elseif (is_dir(dirname(__FILE__).'/fonts')) {
-            $this->_fontPath = dirname(__FILE__).'/fonts/';
+            $pdfDocument->setFontPath(dirname(__FILE__).'/fonts/');
         }
-    }
-
-    /**
-     * @return string
-     */
-    public function getFontPath() {
-        return $this->_fontPath;
-    }
-
-    /**
-     * @param $fontPath
-     */
-    public function setFontPath($fontPath) {
-        $this->_fontPath = $fontPath;
     }
 
 }

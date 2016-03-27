@@ -107,11 +107,6 @@ class PdfDocument {
     protected $_defOrientation = 'P';
 
     /**
-     * @var string
-     */
-    protected $_fontPath = "";
-
-    /**
      * Array holding plugin objects & methods
      * preset for core plugins.
      *
@@ -282,26 +277,6 @@ class PdfDocument {
     public function getDefPageSize()
     {
         return $this->_defPageSize;
-    }
-
-    /**
-     * @return string
-     */
-    public function getFontPath()
-    {
-        return $this->_fontPath;
-    }
-
-    /**
-     * Set the font path
-     *
-     * @param  string $fontPath
-     * @return $this
-     */
-    public function setFontPath($fontPath)
-    {
-        $this->_fontPath = $fontPath;
-        return $this;
     }
 
     /**
@@ -557,7 +532,7 @@ class PdfDocument {
      * @throws PdfException
      * @return string
      */
-    public function output($name = '', $destination = '')
+    public function output($name = '', $destination = 'F')
     {
         if (isset($_SERVER['HTTP_USER_AGENT']) && $_SERVER['HTTP_USER_AGENT'] == 'contype') {
             header('Content-Type: application/pdf');
@@ -566,13 +541,9 @@ class PdfDocument {
         if ($this->_curState < self::STATE_END_DOC) {
             $this->close();
         }
-        if (empty($destination)) {
-            if (empty($name)) {
-                $name        = 'doc.pdf';
-                $destination = 'I';
-            } else {
-                $destination = 'F';
-            }
+        if (empty($name)) {
+            $name        = 'doc.pdf';
+            $destination = 'I';
         }
 
         switch (strtoupper($destination)) {
@@ -596,7 +567,7 @@ class PdfDocument {
                 echo $this->_pdfOutput->outBuffer;
                 break;
             case 'F':
-                $f = fopen($name,'wb');
+                $f = fopen($name, 'wb');
                 if (!$f) {
                     throw new PdfException('Unable to create output file: '.$name);
                 }
@@ -688,10 +659,16 @@ class PdfDocument {
      */
     public function __call($method, $parameters)
     {
+        if (substr($method, 0, 3) == "set") {
+            return $this->__set(substr($method, 3), $parameters);
+        } else if (substr($method, 0, 3) == "get") {
+            return $this->__get(substr($method, 3), $parameters);
+        }
+
         $className = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
 
         if ($className) {
-            $class = new $className($this);
+            $class = new $className($this);  // TODO, fix object cache?
             return call_user_func_array(array($class, $method), $parameters);
         } else {
             return call_user_func_array(array($this->getPage(), $method), $parameters);

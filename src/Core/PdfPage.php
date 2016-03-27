@@ -134,9 +134,11 @@ class PdfPage {
         $this->_wPt = $this->_w * $pdfDocument->getScaleFactor();
         $this->_hPt = $this->_h * $pdfDocument->getScaleFactor();
 
-        $defPageSize = $pdfDocument->getDefPageSize();
-        if ($orientation != $pdfDocument->getDefOrientation() || $size[0] != $defPageSize[0] || $size[1] != $defPageSize[1]) {
-            $pdfDocument->addPageSize($this->_wPt, $this->_hPt);
+        if ($pdfDocument->getCurPageNo() > 0) {
+            $defPageSize = $pdfDocument->getDefPageSize();
+            if ($orientation != $pdfDocument->getDefOrientation() || $size[0] != $defPageSize[0] || $size[1] != $defPageSize[1]) {
+                $pdfDocument->addPageSize($this->_wPt, $this->_hPt);
+            }
         }
 
         $margin = 28.35 / $pdfDocument->getScaleFactor();
