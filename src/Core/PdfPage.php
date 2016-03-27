@@ -217,7 +217,7 @@ class PdfPage {
     function setLineWidth($width)
     {
         $this->_lineWidth = $width;
-        $this->getDocument()->_out(sprintf('%.2F w', $width * $this->getDocument()->getScaleFactor()));
+        $this->getDocument()->out(sprintf('%.2F w', $width * $this->getDocument()->getScaleFactor()));
     }
 
     /**

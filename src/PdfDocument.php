@@ -15,16 +15,6 @@ class PdfDocument {
     protected $_curPage = 0;
 
     /**
-     * @var int Global number of pdf objects
-     */
-    protected $_pdfObjects = 2;
-
-    /**
-     * @var array Object offsets in output buffer
-     */
-    protected $_objectOffsets = array();
-
-    /**
      * @var array PDF pages
      */
     protected $_pages = array();
@@ -466,48 +456,10 @@ class PdfDocument {
         $this->_pages[] = $page;
         $this->_curPage++;
         $this->setState(self::STATE_NEW_PAGE);
-        $this->_out('2 J');
+        $this->out('2 J');
         $this->outputHeader();
 
         return $page;
-    }
-
-    /**
-     * Begin a new object
-     */
-    public function _newobj()
-    {
-        $this->_pdfObjects++;
-        $this->_objectOffsets[$this->_pdfObjects] = strlen($this->_pdfOutput->outBuffer);
-        $this->_out($this->_pdfObjects.' 0 obj');
-    }
-
-    /**
-     * @return int
-     */
-    public function getPdfObjects()
-    {
-        return $this->_pdfObjects;
-    }
-
-    /**
-     * @param  $number
-     * @return bool
-     */
-    public function getPdfObjectOffset($number)
-    {
-        return isset($this->_objectOffsets[$number]) ? $this->_objectOffsets[$number] : false;
-    }
-
-    /**
-     * @param $number
-     * @param $value
-     * @return $this
-     */
-    public function setPdfObjectOffset($number, $value)
-    {
-        $this->_objectOffsets[$number] = $value;
-        return $this;
     }
 
     /**
@@ -515,13 +467,9 @@ class PdfDocument {
      *
      * @param $s
      */
-    public function _out($s)
+    public function out($s)
     {
-        if ($this->_curState == self::STATE_NEW_PAGE) {
-            $this->getPage()->outBuffer .= $s."\n";
-        } else {
-            $this->_pdfOutput->outBuffer .= $s."\n";
-        }
+        $this->_pdfOutput->out($s);
     }
 
     /**
@@ -670,8 +618,10 @@ class PdfDocument {
         if ($className) {
             $class = new $className($this);  // TODO, fix object cache?
             return call_user_func_array(array($class, $method), $parameters);
-        } else {
+        } else if ($this->getCurPageNo() > 0) {
             return call_user_func_array(array($this->getPage(), $method), $parameters);
+        } else {
+            return false;
         }
     }
 

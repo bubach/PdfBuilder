@@ -17,6 +17,16 @@ class PdfOutput {
     public $outBuffer = '';
 
     /**
+     * @var int Global number of pdf objects
+     */
+    protected $_pdfObjects = 2;
+
+    /**
+     * @var array Object offsets in output buffer
+     */
+    protected $_objectOffsets = array();
+
+    /**
      * Construct output instance
      *
      * @param  PdfDocument $pdfDocument
@@ -24,6 +34,22 @@ class PdfOutput {
     public function __construct(PdfDocument $pdfDocument)
     {
         $this->_pdfDocument = $pdfDocument;
+    }
+
+    /**
+     * Output to buffer(s)
+     *
+     * @param $s
+     */
+    public function out($s)
+    {
+        $pdfDocument = $this->_pdfDocument;
+
+        if ($pdfDocument->getState() == $pdfDocument::STATE_NEW_PAGE) {
+            $pdfDocument->getPage()->outBuffer .= $s."\n";
+        } else {
+            $this->outBuffer .= $s."\n";
+        }
     }
 
     /**
@@ -47,15 +73,53 @@ class PdfOutput {
     }
 
     /**
+     * @return int
+     */
+    public function getPdfObjects()
+    {
+        return $this->_pdfObjects;
+    }
+
+    /**
+     * @param  $number
+     * @return bool
+     */
+    public function getPdfObjectOffset($number)
+    {
+        return isset($this->_objectOffsets[$number]) ? $this->_objectOffsets[$number] : false;
+    }
+
+    /**
+     * @param $number
+     * @param $value
+     * @return $this
+     */
+    public function setPdfObjectOffset($number, $value)
+    {
+        $this->_objectOffsets[$number] = $value;
+        return $this;
+    }
+
+    /**
+     * Begin a new object
+     */
+    protected function _newobj()
+    {
+        $this->_pdfObjects++;
+        $this->_objectOffsets[$this->_pdfObjects] = strlen($this->outBuffer);
+        $this->out($this->_pdfObjects.' 0 obj');
+    }
+
+    /**
      * Output stream
      *
      * @param $s
      */
-    function _putstream($s)
+    protected function _putstream($s)
     {
-        $this->_pdfDocument->_out('stream');
-        $this->_pdfDocument->_out($s);
-        $this->_pdfDocument->_out('endstream');
+        $this->out('stream');
+        $this->out($s);
+        $this->out('endstream');
     }
 
     /**
@@ -66,7 +130,7 @@ class PdfOutput {
         $images = array(); // TODO: placeholder for $this->images
 
         foreach ($images as $image) {
-            $this->_pdfDocument->_out('/I'.$image['i'].' '.$image['n'].' 0 R');
+            $this->out('/I'.$image['i'].' '.$image['n'].' 0 R');
         }
     }
 
@@ -75,19 +139,19 @@ class PdfOutput {
      */
     protected function _putResourceDict()
     {
-        $this->_pdfDocument->_out('/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]');
-        $this->_pdfDocument->_out('/Font <<');
+        $this->out('/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]');
+        $this->out('/Font <<');
 
         $fonts = array();// TODO: placeholder for $this->fonts
 
         foreach ($fonts as $font) {
-            $this->_pdfDocument->_out('/F'.$font['i'].' '.$font['n'].' 0 R');
+            $this->out('/F'.$font['i'].' '.$font['n'].' 0 R');
         }
 
-        $this->_pdfDocument->_out('>>');
-        $this->_pdfDocument->_out('/XObject <<');
+        $this->out('>>');
+        $this->out('/XObject <<');
         $this->_putXObjectDict();
-        $this->_pdfDocument->_out('>>');
+        $this->out('>>');
     }
 
     /**
@@ -98,12 +162,12 @@ class PdfOutput {
         //$this->_putfonts();
         //$this->_putimages();
 
-        $this->_pdfDocument->setPdfObjectOffset(2, strlen($this->outBuffer));
-        $this->_pdfDocument->_out('2 0 obj');
-        $this->_pdfDocument->_out('<<');
+        $this->setPdfObjectOffset(2, strlen($this->outBuffer));
+        $this->out('2 0 obj');
+        $this->out('<<');
         $this->_putResourceDict();
-        $this->_pdfDocument->_out('>>');
-        $this->_pdfDocument->_out('endobj');
+        $this->out('>>');
+        $this->out('endobj');
     }
 
     /**
@@ -137,15 +201,15 @@ class PdfOutput {
         $filter = empty($this->_compress) ? '/Filter /FlateDecode ' : '';
 
         for ($n = 1; $n <= $nb; $n++) {
-            $this->_pdfDocument->_newobj();
-            $this->_pdfDocument->_out('<</Type /Page');
-            $this->_pdfDocument->_out('/Parent 1 0 R');
+            $this->_newobj();
+            $this->out('<</Type /Page');
+            $this->out('/Parent 1 0 R');
 
             if ($pageSize = $this->_pdfDocument->getPageSize($n - 1)) {
-                $this->_pdfDocument->_out(sprintf('/MediaBox [0 0 %.2F %.2F]', $pageSize[0], $pageSize[1]));
+                $this->out(sprintf('/MediaBox [0 0 %.2F %.2F]', $pageSize[0], $pageSize[1]));
             }
 
-            $this->_pdfDocument->_out('/Resources 2 0 R');
+            $this->out('/Resources 2 0 R');
 
             if (!empty($this->_pdfDocument->getPage($n)->pageLinks)) {
                 $annots = '/Annots [';
@@ -163,36 +227,36 @@ class PdfOutput {
                         $annots  .= sprintf('/Dest [%d 0 R /XYZ 0 %.2F null]>>', 1 + 2 * $l[0], $h - $l[1] * $this->_pdfDocument->getScaleFactor());
                     }
                 }
-                $this->_pdfDocument->_out($annots.']');
+                $this->out($annots.']');
             }
 
             if ($this->_pdfDocument->pdfVersion > '1.3') {
-                $this->_pdfDocument->_out('/Group <</Type /Group /S /Transparency /CS /DeviceRGB>>');
+                $this->out('/Group <</Type /Group /S /Transparency /CS /DeviceRGB>>');
             }
 
-            $this->_pdfDocument->_out('/Contents '.($this->_pdfDocument->getPdfObjects() + 1).' 0 R>>');
-            $this->_pdfDocument->_out('endobj');
+            $this->out('/Contents '.($this->getPdfObjects() + 1).' 0 R>>');
+            $this->out('endobj');
 
             $p = empty($this->_compress) ? gzcompress($this->_pdfDocument->getPage($n)->pageBuffer) : $this->_pdfDocument->getPage($n)->pageBuffer;
-            $this->_pdfDocument->_newobj();
-            $this->_pdfDocument->_out('<<'.$filter.'/Length '.strlen($p).'>>');
+            $this->_newobj();
+            $this->out('<<'.$filter.'/Length '.strlen($p).'>>');
             $this->_putstream($p);
-            $this->_pdfDocument->_out('endobj');
+            $this->out('endobj');
         }
 
-        $this->_pdfDocument->setPdfObjectOffset(1, strlen($this->outBuffer));
-        $this->_pdfDocument->_out('1 0 obj');
-        $this->_pdfDocument->_out('<</Type /Pages');
+        $this->setPdfObjectOffset(1, strlen($this->outBuffer));
+        $this->out('1 0 obj');
+        $this->out('<</Type /Pages');
         $kids = '/Kids [';
 
         for ($i = 0; $i < $nb; $i++) {
             $kids .= ( 3 + 2 * $i).' 0 R ';
         }
-        $this->_pdfDocument->_out($kids.']');
-        $this->_pdfDocument->_out('/Count '.$nb);
-        $this->_pdfDocument->_out(sprintf('/MediaBox [0 0 %.2F %.2F]', $wPt, $hPt));
-        $this->_pdfDocument->_out('>>');
-        $this->_pdfDocument->_out('endobj');
+        $this->out($kids.']');
+        $this->out('/Count '.$nb);
+        $this->out(sprintf('/MediaBox [0 0 %.2F %.2F]', $wPt, $hPt));
+        $this->out('>>');
+        $this->out('endobj');
     }
 
     /**
@@ -200,12 +264,12 @@ class PdfOutput {
      */
     protected function _putXRef()
     {
-        $this->_pdfDocument->_out('xref');
-        $this->_pdfDocument->_out('0 '.($this->_pdfDocument->getPdfObjects() + 1));
-        $this->_pdfDocument->_out('0000000000 65535 f ');
+        $this->out('xref');
+        $this->out('0 '.($this->getPdfObjects() + 1));
+        $this->out('0000000000 65535 f ');
 
-        for ($i = 1; $i <= $this->_pdfDocument->getPdfObjects(); $i++) {
-            $this->_pdfDocument->_out(sprintf('%010d 00000 n ', $this->_pdfDocument->getPdfObjectOffset($i)));
+        for ($i = 1; $i <= $this->getPdfObjects(); $i++) {
+            $this->out(sprintf('%010d 00000 n ', $this->getPdfObjectOffset($i)));
         }
     }
 
@@ -214,7 +278,7 @@ class PdfOutput {
      */
     protected function _putHeader()
     {
-        $this->_pdfDocument->_out('%PDF-'.$this->_pdfDocument->pdfVersion);
+        $this->out('%PDF-'.$this->_pdfDocument->pdfVersion);
     }
 
     /**
@@ -224,15 +288,15 @@ class PdfOutput {
      */
     protected function _putTrailer($o)
     {
-        $this->_pdfDocument->_out('trailer');
-        $this->_pdfDocument->_out('<<');
-        $this->_pdfDocument->_out('/Size '.($this->_pdfDocument->getPdfObjects() + 1));
-        $this->_pdfDocument->_out('/Root '.$this->_pdfDocument->getPdfObjects().' 0 R');
-        $this->_pdfDocument->_out('/Info '.($this->_pdfDocument->getPdfObjects() - 1).' 0 R');
-        $this->_pdfDocument->_out('>>');
-        $this->_pdfDocument->_out('startxref');
-        $this->_pdfDocument->_out($o);
-        $this->_pdfDocument->_out('%%EOF');
+        $this->out('trailer');
+        $this->out('<<');
+        $this->out('/Size '.($this->getPdfObjects() + 1));
+        $this->out('/Root '.$this->getPdfObjects().' 0 R');
+        $this->out('/Info '.($this->getPdfObjects() - 1).' 0 R');
+        $this->out('>>');
+        $this->out('startxref');
+        $this->out($o);
+        $this->out('%%EOF');
     }
 
     /**
@@ -240,31 +304,31 @@ class PdfOutput {
      */
     protected function _putCatalog()
     {
-        $this->_pdfDocument->_newobj();
-        $this->_pdfDocument->_out('<<');
-        $this->_pdfDocument->_out('/Type /Catalog');
-        $this->_pdfDocument->_out('/Pages 1 0 R');
+        $this->_newobj();
+        $this->out('<<');
+        $this->out('/Type /Catalog');
+        $this->out('/Pages 1 0 R');
 
         if ($this->_pdfDocument->getZoomMode() == 'fullpage') {
-            $this->_pdfDocument->_out('/OpenAction [3 0 R /Fit]');
+            $this->out('/OpenAction [3 0 R /Fit]');
         } elseif ($this->_pdfDocument->getZoomMode() == 'fullwidth') {
-            $this->_pdfDocument->_out('/OpenAction [3 0 R /FitH null]');
+            $this->out('/OpenAction [3 0 R /FitH null]');
         } elseif ($this->_pdfDocument->getZoomMode() == 'real') {
-            $this->_pdfDocument->_out('/OpenAction [3 0 R /XYZ null null 1]');
+            $this->out('/OpenAction [3 0 R /XYZ null null 1]');
         } elseif (!is_string($this->_pdfDocument->getZoomMode())) {
-            $this->_pdfDocument->_out('/OpenAction [3 0 R /XYZ null null '.sprintf('%.2F', $this->_pdfDocument->getZoomMode() / 100).']');
+            $this->out('/OpenAction [3 0 R /XYZ null null '.sprintf('%.2F', $this->_pdfDocument->getZoomMode() / 100).']');
         }
 
         if ($this->_pdfDocument->getLayoutMode() == 'single') {
-            $this->_pdfDocument->_out('/PageLayout /SinglePage');
+            $this->out('/PageLayout /SinglePage');
         } elseif ($this->_pdfDocument->getLayoutMode() == 'continuous') {
-            $this->_pdfDocument->_out('/PageLayout /OneColumn');
+            $this->out('/PageLayout /OneColumn');
         } elseif ($this->_pdfDocument->getLayoutMode() == 'two') {
-            $this->_pdfDocument->_out('/PageLayout /TwoColumnLeft');
+            $this->out('/PageLayout /TwoColumnLeft');
         }
 
-        $this->_pdfDocument->_out('>>');
-        $this->_pdfDocument->_out('endobj');
+        $this->out('>>');
+        $this->out('endobj');
     }
 
     /**
@@ -272,29 +336,29 @@ class PdfOutput {
      */
     protected function _putInfo()
     {
-        $this->_pdfDocument->_newobj();
-        $this->_pdfDocument->_out('<<');
+        $this->_newobj();
+        $this->out('<<');
 
-        $this->_pdfDocument->_out('/Producer '.$this->_textstring('PdfBuilder '.PDFBUILDER_VERSION));
+        $this->out('/Producer '.$this->_textstring('PdfBuilder '.PDFBUILDER_VERSION));
         if (!empty($this->title)) {
-            $this->_pdfDocument->_out('/Title '.$this->_textstring($this->title));
+            $this->out('/Title '.$this->_textstring($this->title));
         }
         if (!empty($this->subject)) {
-            $this->_pdfDocument->_out('/Subject '.$this->_textstring($this->subject));
+            $this->out('/Subject '.$this->_textstring($this->subject));
         }
         if (!empty($this->author)) {
-            $this->_pdfDocument->_out('/Author '.$this->_textstring($this->author));
+            $this->out('/Author '.$this->_textstring($this->author));
         }
         if (!empty($this->keywords)) {
-            $this->_pdfDocument->_out('/Keywords '.$this->_textstring($this->keywords));
+            $this->out('/Keywords '.$this->_textstring($this->keywords));
         }
         if (!empty($this->creator)) {
-            $this->_pdfDocument->_out('/Creator '.$this->_textstring($this->creator));
+            $this->out('/Creator '.$this->_textstring($this->creator));
         }
-        $this->_pdfDocument->_out('/CreationDate '.$this->_textstring('D:'.@date('YmdHis')));
+        $this->out('/CreationDate '.$this->_textstring('D:'.@date('YmdHis')));
 
-        $this->_pdfDocument->_out('>>');
-        $this->_pdfDocument->_out('endobj');
+        $this->out('>>');
+        $this->out('endobj');
     }
 
     /**
