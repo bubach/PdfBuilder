@@ -1,6 +1,6 @@
 <?php
 
-use bubach\PdfBuilder\PdfDocument;
+use PdfBuilder\PdfDocument;
 
 class PdfBuilderTest extends PHPUnit_Framework_TestCase {
 

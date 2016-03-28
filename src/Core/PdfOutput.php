@@ -1,8 +1,8 @@
 <?php
-namespace bubach\PdfBuilder\Core;
+namespace PdfBuilder\Core;
 
-use bubach\PdfBuilder\PdfDocument;
-use bubach\PdfBuilder\Exception\PdfException;
+use PdfBuilder\PdfDocument;
+use PdfBuilder\Exception\PdfException;
 
 class PdfOutput {
 
@@ -34,22 +34,6 @@ class PdfOutput {
     public function __construct(PdfDocument $pdfDocument)
     {
         $this->_pdfDocument = $pdfDocument;
-    }
-
-    /**
-     * Output to buffer(s)
-     *
-     * @param $s
-     */
-    public function out($s)
-    {
-        $pdfDocument = $this->_pdfDocument;
-
-        if ($pdfDocument->getState() == $pdfDocument::STATE_NEW_PAGE) {
-            $pdfDocument->getPage()->outBuffer .= $s."\n";
-        } else {
-            $this->outBuffer .= $s."\n";
-        }
     }
 
     /**
@@ -98,6 +82,22 @@ class PdfOutput {
     {
         $this->_objectOffsets[$number] = $value;
         return $this;
+    }
+
+    /**
+     * Output to buffer(s)
+     *
+     * @param $s
+     */
+    public function out($s)
+    {
+        $pdfDocument = $this->_pdfDocument;
+
+        if ($pdfDocument->getState() == $pdfDocument::STATE_NEW_PAGE) {
+            $pdfDocument->getPage()->outBuffer .= $s."\n";
+        } else {
+            $this->outBuffer .= $s."\n";
+        }
     }
 
     /**
@@ -219,7 +219,7 @@ class PdfOutput {
                     $annots .= '<</Type /Annot /Subtype /Link /Rect ['.$rect.'] /Border [0 0 0] ';
 
                     if (is_string($pl[4])) {
-                        $annots .= '/A <</S /URI /URI '.$this->_textstring($pl[4]).'>>>>';
+                        $annots .= '/A <</S /URI /URI '.$this->textstring($pl[4]).'>>>>';
                     } else {
                         $l        = $this->_pdfDocument->internalLinks[$pl[4]];
                         $pageSize = $this->_pdfDocument->getPageSize($l[0]);
@@ -339,26 +339,115 @@ class PdfOutput {
         $this->_newobj();
         $this->out('<<');
 
-        $this->out('/Producer '.$this->_textstring('PdfBuilder '.PDFBUILDER_VERSION));
+        $this->out('/Producer '.$this->textstring('PdfBuilder '.PDFBUILDER_VERSION));
         if (!empty($this->title)) {
-            $this->out('/Title '.$this->_textstring($this->title));
+            $this->out('/Title '.$this->textstring($this->title));
         }
         if (!empty($this->subject)) {
-            $this->out('/Subject '.$this->_textstring($this->subject));
+            $this->out('/Subject '.$this->textstring($this->subject));
         }
         if (!empty($this->author)) {
-            $this->out('/Author '.$this->_textstring($this->author));
+            $this->out('/Author '.$this->textstring($this->author));
         }
         if (!empty($this->keywords)) {
-            $this->out('/Keywords '.$this->_textstring($this->keywords));
+            $this->out('/Keywords '.$this->textstring($this->keywords));
         }
         if (!empty($this->creator)) {
-            $this->out('/Creator '.$this->_textstring($this->creator));
+            $this->out('/Creator '.$this->textstring($this->creator));
         }
-        $this->out('/CreationDate '.$this->_textstring('D:'.@date('YmdHis')));
+        $this->out('/CreationDate '.$this->textstring('D:'.@date('YmdHis')));
 
         $this->out('>>');
         $this->out('endobj');
+    }
+
+    /**
+     * Utf8 to Utf16
+     *
+     * @param  $str
+     * @param  bool $setbom
+     * @return string
+     */
+    public function UTF8ToUTF16BE($str, $setbom = true)
+    {
+        $outstr = "";
+
+        if ($setbom) {
+            $outstr .= "\xFE\xFF";
+        }
+        $outstr .= mb_convert_encoding($str, 'UTF-16BE', 'UTF-8');
+
+        return $outstr;
+    }
+
+    /**
+     * Convert UTF-8 to UTF-16BE with BOM
+     *
+     * @param $s
+     * @return string
+     */
+    function _UTF8toUTF16($s)
+    {
+        $res = "\xFE\xFF";
+        $nb = strlen($s);
+        $i = 0;
+        while($i<$nb)
+        {
+            $c1 = ord($s[$i++]);
+            if($c1>=224)
+            {
+                // 3-byte character
+                $c2 = ord($s[$i++]);
+                $c3 = ord($s[$i++]);
+                $res .= chr((($c1 & 0x0F)<<4) + (($c2 & 0x3C)>>2));
+                $res .= chr((($c2 & 0x03)<<6) + ($c3 & 0x3F));
+            }
+            elseif($c1>=192)
+            {
+                // 2-byte character
+                $c2 = ord($s[$i++]);
+                $res .= chr(($c1 & 0x1C)>>2);
+                $res .= chr((($c1 & 0x03)<<6) + ($c2 & 0x3F));
+            }
+            else
+            {
+                // Single-byte character
+                $res .= "\0".chr($c1);
+            }
+        }
+        return $res;
+    }
+
+    /**
+     * Converts UTF-8 strings to codepoints array
+     *
+     * @param  $str
+     * @return array
+     */
+    public function UTF8StringToArray($str)
+    {
+        $out = array();
+        $len = strlen($str);
+
+        for ($i = 0; $i < $len; $i++) {
+            $uni = -1;
+            $h   = ord($str[$i]);
+            if ($h <= 0x7F) {
+                $uni = $h;
+            } elseif ( $h >= 0xC2 ) {
+                if (($h <= 0xDF) && ($i < $len -1)) {
+                    $uni = ($h & 0x1F) << 6 | (ord($str[++$i]) & 0x3F);
+                } elseif (($h <= 0xEF) && ($i < $len -2)) {
+                    $uni = ($h & 0x0F) << 12 | (ord($str[++$i]) & 0x3F) << 6 | (ord($str[++$i]) & 0x3F);
+                } elseif (($h <= 0xF4) && ($i < $len -3)) {
+                    $uni = ($h & 0x0F) << 18 | (ord($str[++$i]) & 0x3F) << 12 | (ord($str[++$i]) & 0x3F) << 6 | (ord($str[++$i]) & 0x3F);
+                }
+            }
+            if ($uni >= 0) {
+                $out[] = $uni;
+            }
+        }
+        return $out;
     }
 
     /**
@@ -367,9 +456,9 @@ class PdfOutput {
      * @param  $s
      * @return string
      */
-    protected function _textstring($s)
+    public function textstring($s)
     {
-        return '('.$this->_escape($s).')';
+        return '('.$this->escape($s).')';
     }
 
     /**
@@ -378,7 +467,7 @@ class PdfOutput {
      * @param  $s
      * @return string
      */
-    protected function _escape($s)
+    public function escape($s)
     {
         $s = str_replace('\\','\\\\',$s);
         $s = str_replace('(','\\(',$s);

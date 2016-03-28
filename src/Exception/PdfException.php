@@ -1,5 +1,5 @@
 <?php
-namespace bubach\PdfBuilder\Exception;
+namespace PdfBuilder\Exception;
 
 class PdfException extends \Exception
 {

@@ -1,8 +1,9 @@
 {
-    "name": "bubach/PdfBuilder",
+    "name": "pdfbuilder/pdfbuilder",
     "description": "PdfBuilder, a modern PDF generating library for PHP",
     "license": "no usage restriction",
     "keywords": ["pdfbuilder"],
+    "homepage": "http://github.com/bubach/PdfBuilder",
     "authors": [
         {
             "name": "Christoffer Bubach",
@@ -15,7 +16,7 @@
     },
     "autoload": {
         "psr-4": {
-            "bubach\\PdfBuilder\\": "src"
+            "PdfBuilder\\": "src/"
         }
     }
 }

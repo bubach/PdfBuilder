@@ -1,7 +1,7 @@
 <?php
-namespace bubach\PdfBuilder\Core;
+namespace PdfBuilder\Core;
 
-use bubach\PdfBuilder\PdfDocument;
+use PdfBuilder\PdfDocument;
 
 class PdfHeader {
 

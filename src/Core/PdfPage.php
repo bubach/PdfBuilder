@@ -1,8 +1,8 @@
 <?php
-namespace bubach\PdfBuilder\Core;
+namespace PdfBuilder\Core;
 
-use bubach\PdfBuilder\PdfDocument;
-use bubach\PdfBuilder\Exception\PdfException;
+use PdfBuilder\PdfDocument;
+use PdfBuilder\Exception\PdfException;
 
 class PdfPage {
 
@@ -281,6 +281,51 @@ class PdfPage {
         $this->_autoPageBreak    = $auto;
         $this->_bMargin          = $margin;
         $this->_pageBreakTrigger = $this->_h - $margin;
+    }
+
+    //TODO ALL
+    function AcceptPageBreak()
+    {
+        // Accept automatic page break or not
+        return $this->AutoPageBreak;
+    }
+
+    function GetX()
+    {
+        // Get x position
+        return $this->x;
+    }
+
+    function SetX($x)
+    {
+        // Set x position
+        if($x>=0)
+            $this->x = $x;
+        else
+            $this->x = $this->w+$x;
+    }
+
+    function GetY()
+    {
+        // Get y position
+        return $this->y;
+    }
+
+    function SetY($y)
+    {
+        // Set y position and reset x
+        $this->x = $this->lMargin;
+        if($y>=0)
+            $this->y = $y;
+        else
+            $this->y = $this->h+$y;
+    }
+
+    function SetXY($x, $y)
+    {
+        // Set x and y positions
+        $this->SetY($y);
+        $this->SetX($x);
     }
 
     /**

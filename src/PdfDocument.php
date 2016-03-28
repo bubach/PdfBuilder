@@ -1,9 +1,9 @@
 <?php
-namespace bubach\PdfBuilder;
+namespace PdfBuilder;
 
-use bubach\PdfBuilder\Core\PdfPage;
-use bubach\PdfBuilder\Core\PdfOutput;
-use bubach\PdfBuilder\Exception\PdfException;
+use PdfBuilder\Core\PdfPage;
+use PdfBuilder\Core\PdfOutput;
+use PdfBuilder\Exception\PdfException;
 
 define('PDFBUILDER_VERSION','1.00');
 
@@ -103,15 +103,15 @@ class PdfDocument {
      * @var array
      */
     public $plugins = array(
-        'addHeader'    => 'bubach\PdfBuilder\Core\PdfHeader',
-        'outputHeader' => 'bubach\PdfBuilder\Core\PdfHeader',
-        'addFooter'    => 'bubach\PdfBuilder\Core\PdfFooter',
-        'outputFooter' => 'bubach\PdfBuilder\Core\PdfFooter',
-        'addImage'     => 'bubach\PdfBuilder\Plugins\PdfImage',
-        'setFont'      => 'bubach\PdfBuilder\Plugins\PdfText',
-        'addText'      => 'bubach\PdfBuilder\Plugins\PdfText',
-        'addCircle'    => 'bubach\PdfBuilder\Plugins\PdfShape',
-        'addRectangle' => 'bubach\PdfBuilder\Plugins\PdfShape',
+        'addHeader'    => 'PdfBuilder\Core\PdfHeader',
+        'outputHeader' => 'PdfBuilder\Core\PdfHeader',
+        'addFooter'    => 'PdfBuilder\Core\PdfFooter',
+        'outputFooter' => 'PdfBuilder\Core\PdfFooter',
+        'addImage'     => 'PdfBuilder\Plugins\PdfImage',
+        'setFont'      => 'PdfBuilder\Plugins\PdfText',
+        'addText'      => 'PdfBuilder\Plugins\PdfText',
+        'addCircle'    => 'PdfBuilder\Plugins\PdfShape',
+        'addRectangle' => 'PdfBuilder\Plugins\PdfShape',
     );
 
     /**
@@ -347,6 +347,14 @@ class PdfDocument {
     public function getZoomMode()
     {
         return $this->_zoomMode;
+    }
+
+    /**
+     * @return PdfOutput
+     */
+    public function getOutputter()
+    {
+        return $this->_pdfOutput;
     }
 
     /**
