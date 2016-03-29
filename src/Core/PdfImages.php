@@ -4,6 +4,26 @@ namespace PdfBuilder\Core;
 
 class PdfImages {
 
+    /**
+     * @var array
+     */
+    public $images = array();
+
+    /**
+     * @var PdfOutput
+     */
+    protected $_pdfOutput;
+
+    /**
+     * Construct output instance
+     *
+     * @param  PdfOutput $pdfOutput
+     */
+    public function __construct(PdfOutput $pdfOutput)
+    {
+        $this->_pdfOutput = $pdfOutput;
+    }
+
     function _parsejpg($file)
     {
         // Extract info from a JPEG file

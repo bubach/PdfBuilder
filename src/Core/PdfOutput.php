@@ -2,6 +2,8 @@
 namespace PdfBuilder\Core;
 
 use PdfBuilder\PdfDocument;
+use PdfBuilder\Core\PdfFonts;
+use PdfBuilder\Core\PdfImages;
 use PdfBuilder\Exception\PdfException;
 
 class PdfOutput {
@@ -10,6 +12,16 @@ class PdfOutput {
      * @var PdfDocument
      */
     protected $_pdfDocument;
+
+    /**
+     * @var PdfFonts
+     */
+    protected $_pdfFonts;
+
+    /**
+     * @var PdfImages
+     */
+    protected $_pdfImages;
 
     /**
      * @var string PDF output buffer
@@ -34,6 +46,8 @@ class PdfOutput {
     public function __construct(PdfDocument $pdfDocument)
     {
         $this->_pdfDocument = $pdfDocument;
+        $this->_pdfFonts    = new PdfFonts($this);
+        $this->_pdfImages   = new PdfImages($this);
     }
 
     /**
@@ -74,14 +88,38 @@ class PdfOutput {
     }
 
     /**
-     * @param $number
-     * @param $value
+     * @param  $number
+     * @param  $value
      * @return $this
      */
     public function setPdfObjectOffset($number, $value)
     {
         $this->_objectOffsets[$number] = $value;
         return $this;
+    }
+
+    /**
+     * @return PdfImages
+     */
+    public function getImageOutputter()
+    {
+        return $this->_pdfImages;
+    }
+
+    /**
+     * @return PdfFonts
+     */
+    public function getFontOutputter()
+    {
+        return $this->_pdfFonts;
+    }
+
+    /**
+     * @return PdfDocument
+     */
+    public function getDocument()
+    {
+        return $this->_pdfDocument;
     }
 
     /**
@@ -103,7 +141,7 @@ class PdfOutput {
     /**
      * Begin a new object
      */
-    protected function _newobj()
+    public function newObj()
     {
         $this->_pdfObjects++;
         $this->_objectOffsets[$this->_pdfObjects] = strlen($this->outBuffer);
@@ -115,7 +153,7 @@ class PdfOutput {
      *
      * @param $s
      */
-    protected function _putstream($s)
+    public function putStream($s)
     {
         $this->out('stream');
         $this->out($s);
@@ -127,9 +165,7 @@ class PdfOutput {
      */
     protected function _putXObjectDict()
     {
-        $images = array(); // TODO: placeholder for $this->images
-
-        foreach ($images as $image) {
+        foreach ($this->getImageOutputter()->images as $image) {
             $this->out('/I'.$image['i'].' '.$image['n'].' 0 R');
         }
     }
@@ -142,9 +178,7 @@ class PdfOutput {
         $this->out('/ProcSet [/PDF /Text /ImageB /ImageC /ImageI]');
         $this->out('/Font <<');
 
-        $fonts = array();// TODO: placeholder for $this->fonts
-
-        foreach ($fonts as $font) {
+        foreach ($this->getFontOutputter()->fonts as $font) {
             $this->out('/F'.$font['i'].' '.$font['n'].' 0 R');
         }
 
@@ -159,8 +193,8 @@ class PdfOutput {
      */
     protected function _putResources()
     {
-        //$this->_putfonts();
-        //$this->_putimages();
+        $this->getFontOutputter()->putFonts();
+        $this->getImageOutputter()->putImages();
 
         $this->setPdfObjectOffset(2, strlen($this->outBuffer));
         $this->out('2 0 obj');
@@ -199,9 +233,34 @@ class PdfOutput {
         }
 
         $filter = empty($this->_compress) ? '/Filter /FlateDecode ' : '';
+        $this->_loopOutPages($nb, $filter, $hPt);
 
+        $this->setPdfObjectOffset(1, strlen($this->outBuffer));
+        $this->out('1 0 obj');
+        $this->out('<</Type /Pages');
+        $kids = '/Kids [';
+
+        for ($i = 0; $i < $nb; $i++) {
+            $kids .= ( 3 + 2 * $i).' 0 R ';
+        }
+        $this->out($kids.']');
+        $this->out('/Count '.$nb);
+        $this->out(sprintf('/MediaBox [0 0 %.2F %.2F]', $wPt, $hPt));
+        $this->out('>>');
+        $this->out('endobj');
+    }
+
+    /**
+     * Loop to output each page
+     *
+     * @param $nb     int     Number of pages
+     * @param $filter string  Filter
+     * @param $hPt    float   Height
+     */
+    protected function _loopOutPages($nb, $filter, $hPt)
+    {
         for ($n = 1; $n <= $nb; $n++) {
-            $this->_newobj();
+            $this->newObj();
             $this->out('<</Type /Page');
             $this->out('/Parent 1 0 R');
 
@@ -238,25 +297,11 @@ class PdfOutput {
             $this->out('endobj');
 
             $p = empty($this->_compress) ? gzcompress($this->_pdfDocument->getPage($n)->pageBuffer) : $this->_pdfDocument->getPage($n)->pageBuffer;
-            $this->_newobj();
+            $this->newObj();
             $this->out('<<'.$filter.'/Length '.strlen($p).'>>');
-            $this->_putstream($p);
+            $this->putStream($p);
             $this->out('endobj');
         }
-
-        $this->setPdfObjectOffset(1, strlen($this->outBuffer));
-        $this->out('1 0 obj');
-        $this->out('<</Type /Pages');
-        $kids = '/Kids [';
-
-        for ($i = 0; $i < $nb; $i++) {
-            $kids .= ( 3 + 2 * $i).' 0 R ';
-        }
-        $this->out($kids.']');
-        $this->out('/Count '.$nb);
-        $this->out(sprintf('/MediaBox [0 0 %.2F %.2F]', $wPt, $hPt));
-        $this->out('>>');
-        $this->out('endobj');
     }
 
     /**
@@ -304,7 +349,7 @@ class PdfOutput {
      */
     protected function _putCatalog()
     {
-        $this->_newobj();
+        $this->newObj();
         $this->out('<<');
         $this->out('/Type /Catalog');
         $this->out('/Pages 1 0 R');
@@ -336,24 +381,31 @@ class PdfOutput {
      */
     protected function _putInfo()
     {
-        $this->_newobj();
+        $this->newObj();
         $this->out('<<');
 
         $this->out('/Producer '.$this->textstring('PdfBuilder '.PDFBUILDER_VERSION));
-        if (!empty($this->title)) {
-            $this->out('/Title '.$this->textstring($this->title));
+
+        $title    = $this->_pdfDocument->getTitle();
+        $subject  = $this->_pdfDocument->getSubject();
+        $author   = $this->_pdfDocument->getAuthor();
+        $keywords = $this->_pdfDocument->getKeywords();
+        $creator  = $this->_pdfDocument->getCreator();
+
+        if (!empty($title)) {
+            $this->out('/Title '.$this->textstring($title));
         }
-        if (!empty($this->subject)) {
-            $this->out('/Subject '.$this->textstring($this->subject));
+        if (!empty($subject)) {
+            $this->out('/Subject '.$this->textstring($subject));
         }
-        if (!empty($this->author)) {
-            $this->out('/Author '.$this->textstring($this->author));
+        if (!empty($author)) {
+            $this->out('/Author '.$this->textstring($author));
         }
-        if (!empty($this->keywords)) {
-            $this->out('/Keywords '.$this->textstring($this->keywords));
+        if (!empty($keywords)) {
+            $this->out('/Keywords '.$this->textstring($keywords));
         }
-        if (!empty($this->creator)) {
-            $this->out('/Creator '.$this->textstring($this->creator));
+        if (!empty($creator)) {
+            $this->out('/Creator '.$this->textstring($creator));
         }
         $this->out('/CreationDate '.$this->textstring('D:'.@date('YmdHis')));
 
@@ -365,53 +417,43 @@ class PdfOutput {
      * Utf8 to Utf16
      *
      * @param  $str
-     * @param  bool $setbom
+     * @param  bool $setBom
      * @return string
      */
-    public function UTF8ToUTF16BE($str, $setbom = true)
+    public function UTF8ToUTF16BE($str, $setBom = true)
     {
-        $outstr = "";
-
-        if ($setbom) {
-            $outstr .= "\xFE\xFF";
+        if ($setBom) {
+            return "\xFE\xFF".mb_convert_encoding($str, 'UTF-16BE', 'UTF-8');
         }
-        $outstr .= mb_convert_encoding($str, 'UTF-16BE', 'UTF-8');
-
-        return $outstr;
+        return mb_convert_encoding($str, 'UTF-16BE', 'UTF-8');
     }
 
     /**
      * Convert UTF-8 to UTF-16BE with BOM
+     *    the if's check for 3, 2 and single byte chars.
      *
-     * @param $s
+     * @param  $s
      * @return string
      */
     function _UTF8toUTF16($s)
     {
         $res = "\xFE\xFF";
-        $nb = strlen($s);
-        $i = 0;
-        while($i<$nb)
-        {
+        $nb  = strlen($s);
+        $i  = 0;
+
+        while ($i < $nb) {
             $c1 = ord($s[$i++]);
-            if($c1>=224)
-            {
-                // 3-byte character
+
+            if ($c1 >= 224) {
+                $c2   = ord($s[$i++]);
+                $c3   = ord($s[$i++]);
+                $res .= chr((($c1 & 0x0F) << 4) + (($c2 & 0x3C)>>2));
+                $res .= chr((($c2 & 0x03) << 6) + ($c3 & 0x3F));
+            } elseif ($c1 >= 192) {
                 $c2 = ord($s[$i++]);
-                $c3 = ord($s[$i++]);
-                $res .= chr((($c1 & 0x0F)<<4) + (($c2 & 0x3C)>>2));
-                $res .= chr((($c2 & 0x03)<<6) + ($c3 & 0x3F));
-            }
-            elseif($c1>=192)
-            {
-                // 2-byte character
-                $c2 = ord($s[$i++]);
-                $res .= chr(($c1 & 0x1C)>>2);
-                $res .= chr((($c1 & 0x03)<<6) + ($c2 & 0x3F));
-            }
-            else
-            {
-                // Single-byte character
+                $res .= chr(($c1 & 0x1C) >> 2);
+                $res .= chr((($c1 & 0x03) << 6) + ($c2 & 0x3F));
+            } else {
                 $res .= "\0".chr($c1);
             }
         }

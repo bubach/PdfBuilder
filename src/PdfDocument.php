@@ -137,6 +137,8 @@ class PdfDocument {
      */
     public function __construct($orientation = 'P', $unit = 'mm', $size = 'A4', $fontPath = null)
     {
+        $fontPath = empty($fontPath) ? dirname(__FILE__).'/Fonts/' : $fontPath;
+
         $this->_doChecks();
         $this->setFontPath($fontPath);
         $this->setScaleFactor($unit);
@@ -621,10 +623,12 @@ class PdfDocument {
             return $this->__get(substr($method, 3), $parameters);
         }
 
-        $className = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
+        $class = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
 
-        if ($className) {
-            $class = new $className($this);  // TODO, fix object cache?
+        if ($class) {
+            if (!is_object($class)) {
+                $class = new $class($this);
+            }
             return call_user_func_array(array($class, $method), $parameters);
         } else if ($this->getCurPageNo() > 0) {
             return call_user_func_array(array($this->getPage(), $method), $parameters);
