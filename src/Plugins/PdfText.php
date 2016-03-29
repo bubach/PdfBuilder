@@ -498,14 +498,4 @@ class PdfText {
         return sprintf('%.2F %.2F %.2F %.2F re f',$x*$this->k,($this->h-($y-$up/1000*$this->FontSize))*$this->k,$w*$this->k,-$ut/1000*$this->FontSizePt);
     }
 
-    function _loadfont($font)
-    {
-        // Load a font definition file from the font directory
-        include($this->fontpath.$font);
-        $a = get_defined_vars();
-        if(!isset($a['name']))
-            $this->Error('Could not include font definition file');
-        return $a;
-    }
-
 }
