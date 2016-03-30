@@ -132,7 +132,7 @@ class PdfOutput {
         $pdfDocument = $this->_pdfDocument;
 
         if ($pdfDocument->getState() == $pdfDocument::STATE_NEW_PAGE) {
-            $pdfDocument->getPage()->outBuffer .= $s."\n";
+            $pdfDocument->getPage()->pageBuffer .= $s."\n";
         } else {
             $this->outBuffer .= $s."\n";
         }
@@ -232,7 +232,7 @@ class PdfOutput {
             $hPt = $defPageSize[0] * $this->_pdfDocument->getScaleFactor();
         }
 
-        $filter = empty($this->_compress) ? '/Filter /FlateDecode ' : '';
+        $filter = empty($this->_compress) ? '' : '/Filter /FlateDecode ';
         $this->_loopOutPages($nb, $filter, $hPt);
 
         $this->setPdfObjectOffset(1, strlen($this->outBuffer));
@@ -270,7 +270,7 @@ class PdfOutput {
 
             $this->out('/Resources 2 0 R');
 
-            if (!empty($this->_pdfDocument->getPage($n)->pageLinks)) {
+            if (!empty($this->_pdfDocument->getPage($n - 1)->pageLinks)) {
                 $annots = '/Annots [';
 
                 foreach($this->_pdfDocument->getPage($n)->pageLinks as $pl) {
@@ -296,7 +296,7 @@ class PdfOutput {
             $this->out('/Contents '.($this->getPdfObjects() + 1).' 0 R>>');
             $this->out('endobj');
 
-            $p = empty($this->_compress) ? gzcompress($this->_pdfDocument->getPage($n)->pageBuffer) : $this->_pdfDocument->getPage($n)->pageBuffer;
+            $p = empty($this->_compress) ? $this->_pdfDocument->getPage($n)->pageBuffer : gzcompress($this->_pdfDocument->getPage($n)->pageBuffer);
             $this->newObj();
             $this->out('<<'.$filter.'/Length '.strlen($p).'>>');
             $this->putStream($p);
@@ -352,6 +352,12 @@ class PdfOutput {
         $this->newObj();
         $this->out('<<');
         $this->out('/Type /Catalog');
+
+        // TODO: check supporting Print scaling off
+        //   $this->out('/ViewerPreferences [/PrintScaling/None]');
+        // OR
+        //  $this->out('/ViewerPreferences<</Duplex/Simplex/Enforce[/PrintScaling]/PrintScaling/None>>');
+
         $this->out('/Pages 1 0 R');
 
         if ($this->_pdfDocument->getZoomMode() == 'fullpage') {

@@ -242,18 +242,24 @@ class PdfImages {
         return $info;
     }
 
-
-    function _putimages()
+    /**
+     *  Output images
+     */
+    public function putImages()
     {
-        foreach(array_keys($this->images) as $file)
-        {
-            $this->_putimage($this->images[$file]);
+        foreach(array_keys($this->images) as $file) {
+            $this->_putImage($this->images[$file]);
             unset($this->images[$file]['data']);
             unset($this->images[$file]['smask']);
         }
     }
 
-    function _putimage(&$info)
+    /**
+     * Output one image
+     *
+     * @param $info
+     */
+    protected function _putImage(&$info)
     {
         $this->_newobj();
         $info['n'] = $this->n;

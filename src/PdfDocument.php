@@ -45,11 +45,6 @@ class PdfDocument {
     protected $_scaleFactor = 1;
 
     /**
-     * @var string
-     */
-    protected $_aliasNbPages;
-
-    /**
      * Internal document links
      *
      * @var array
@@ -108,6 +103,9 @@ class PdfDocument {
         'addFooter'    => 'PdfBuilder\Core\PdfFooter',
         'outputFooter' => 'PdfBuilder\Core\PdfFooter',
         'addImage'     => 'PdfBuilder\Plugins\PdfImage',
+        'setTextColor' => 'PdfBuilder\Plugins\PdfText',
+        'text'         => 'PdfBuilder\Plugins\PdfText',
+        'cell'         => 'PdfBuilder\Plugins\PdfText',
         'setFont'      => 'PdfBuilder\Plugins\PdfText',
         'addText'      => 'PdfBuilder\Plugins\PdfText',
         'addCircle'    => 'PdfBuilder\Plugins\PdfShape',
@@ -578,11 +576,14 @@ class PdfDocument {
      */
     public function __get($name)
     {
-        $method    = "get".ucfirst($name);
-        $className = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
+        $method = "get".ucfirst($name);
+        $class  = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
 
-        if ($className) {
-            return call_user_func(array($className, $method));
+        if ($class) {
+            if (!is_object($class)) {
+                $class = new $class($this);
+            }
+            return call_user_func(array($class, $method));
         } else {
             return isset($this->data[$name]) ? $this->data[$name] : false;
         }
@@ -597,11 +598,14 @@ class PdfDocument {
      */
     public function __set($name, $value)
     {
-        $method    = "set".ucfirst($name);
-        $className = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
+        $method = "set".ucfirst($name);
+        $class  = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
 
-        if ($className) {
-            return call_user_func_array(array($className, $method), array($value));
+        if ($class) {
+            if (!is_object($class)) {
+                $class = new $class($this);
+            }
+            return call_user_func(array($class, $method), $value);
         } else {
             $this->data[$name] = $value;
             return $this;
@@ -618,9 +622,9 @@ class PdfDocument {
     public function __call($method, $parameters)
     {
         if (substr($method, 0, 3) == "set") {
-            return $this->__set(substr($method, 3), $parameters);
+            return $this->__set(substr($method, 3), reset($parameters));
         } else if (substr($method, 0, 3) == "get") {
-            return $this->__get(substr($method, 3), $parameters);
+            return $this->__get(substr($method, 3));
         }
 
         $class = isset($this->plugins[$method]) ? $this->plugins[$method] : false;

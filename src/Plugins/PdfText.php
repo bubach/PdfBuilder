@@ -2,6 +2,7 @@
 namespace PdfBuilder\Plugins;
 
 use PdfBuilder\PdfDocument;
+use PdfBuilder\Exception\PdfException;
 
 class PdfText {
 
@@ -27,14 +28,14 @@ class PdfText {
      * @param PdfDocument $pdfDocument
      */
     public function __construct(PdfDocument $pdfDocument) {
-        $this->_pdfBuilder = $pdfDocument;
+        $this->_pdfDocument = $pdfDocument;
 
         if ($fontpath = $pdfDocument->getFontPath()) {
             if (substr($fontpath, -1) != '/' && substr($fontpath, -1) != '\\') {
                 $pdfDocument->setFontPath($fontpath.'/');
             }
-        } elseif (is_dir(dirname(__FILE__).'/fonts')) {
-            $pdfDocument->setFontPath(dirname(__FILE__).'/fonts/');
+        } elseif (is_dir(dirname(__FILE__).'/Fonts')) {
+            $pdfDocument->setFontPath(dirname(__FILE__).'/Fonts/');
         }
     }
 
@@ -47,65 +48,108 @@ class PdfText {
      */
     public function text($x, $y, $txt)
     {
-        $pdfOutput = $this->_pdfDocument->getOutputter();
+        $document  = $this->_pdfDocument;
+        $pdfOutput = $document->getOutputter();
+
 
         if ($this->_pdfDocument->getUnifontSubset()) {
             $txt2 = '('.$pdfOutput->escape($pdfOutput->UTF8ToUTF16BE($txt, false)).')';
-            foreach($pdfOutput->UTF8StringToArray($txt) as $uni) {
-                $this->CurrentFont['subset'][$uni] = $uni;
+            $currentFont = &$document->getCurrentFont();
+
+            foreach ($pdfOutput->UTF8StringToArray($txt) as $uni) {
+                $currentFont['subset'][$uni] = $uni;
             }
+
+            $document->setCurrentFont($currentFont);
         } else {
             $txt2 = '('.$pdfOutput->escape($txt).')';
         }
-        $s = sprintf('BT %.2F %.2F Td %s Tj ET',$x*$this->k,($this->h-$y)*$this->k,$txt2);
+        $scaleFactor = $document->getScaleFactor();
+        $height      = $document->getPage()->getHeight();
+        $s = sprintf('BT %.2F %.2F Td %s Tj ET', $x * $scaleFactor,($height - $y) * $scaleFactor, $txt2);
 
-        if ($this->underline && $txt!='') {
-            $s .= ' '.$this->_dounderline($x,$y,$txt);
+        if ($document->getUnderline() && $txt != '') {
+            $s .= ' '.$this->_dounderline($x, $y, $txt);
         }
-        if ($this->ColorFlag) {
-            $s = 'q '.$this->TextColor.' '.$s.' Q';
+        if ($document->getColorFlag()) {
+            $s = 'q '.$document->getTextColor().' '.$s.' Q';
         }
-        $this->_out($s);
+        $pdfOutput->out($s);
     }
 
-    function SetTextColor($r, $g=null, $b=null)
+    /**
+     * Set color for text,
+     * overrides magic setter in document
+     *
+     * @param $r
+     * @param null $g
+     * @param null $b
+     */
+    public function setTextColor($r, $g = null, $b = null)
     {
-        // Set color for text
-        if(($r==0 && $g==0 && $b==0) || $g===null)
-            $this->TextColor = sprintf('%.3F g',$r/255);
-        else
-            $this->TextColor = sprintf('%.3F %.3F %.3F rg',$r/255,$g/255,$b/255);
-        $this->ColorFlag = ($this->FillColor!=$this->TextColor);
+        if (($r == 0 && $g == 0 && $b == 0) || $g === null) {
+            $this->_pdfDocument->__set('TextColor', sprintf('%.3F g', $r / 255));
+        } else {
+            $this->_pdfDocument->__set('TextColor', sprintf('%.3F %.3F %.3F rg', $r / 255, $g / 255, $b / 255));
+        }
+        $this->_pdfDocument->setColorFlag(($this->_pdfDocument->getFillColor() != $this->_pdfDocument->getTextColor()));
     }
 
-    function GetStringWidth($s)
+    /**
+     * Get width of a string in the current font
+     *
+     * @param $s
+     * @return float
+     */
+    public function getStringWidth($s)
     {
-        // Get width of a string in the current font
-        $s = (string)$s;
-        $cw = &$this->CurrentFont['cw'];
-        $w=0;
-        if ($this->unifontSubset) {
-            $unicode = $this->UTF8StringToArray($s);
-            foreach($unicode as $char) {
-                if (isset($cw[$char])) { $w += (ord($cw[2*$char])<<8) + ord($cw[2*$char+1]); }
-                else if($char>0 && $char<128 && isset($cw[chr($char)])) { $w += $cw[chr($char)]; }
-                else if(isset($this->CurrentFont['desc']['MissingWidth'])) { $w += $this->CurrentFont['desc']['MissingWidth']; }
-                else if(isset($this->CurrentFont['MissingWidth'])) { $w += $this->CurrentFont['MissingWidth']; }
-                else { $w += 500; }
+        $document    = $this->_pdfDocument;
+        $output      = $document->getOutputter();
+        $currentFont = &$document->getCurrentFont();
+
+        $s  = (string)$s;
+        $cw = $currentFont['cw'];
+        $w  = 0;
+
+        if ($document->getUnifontSubset()) {
+            $unicode = $output->UTF8StringToArray($s);
+
+            foreach ($unicode as $char) {
+                if (isset($cw[$char])) {
+                    $w += (ord($cw[2 * $char]) << 8) + ord($cw[2 * $char + 1]);
+                } else if ($char > 0 && $char < 128 && isset($cw[chr($char)])) {
+                    $w += $cw[chr($char)];
+                } else if (isset($currentFont['desc']['MissingWidth'])) {
+                    $w += $currentFont['desc']['MissingWidth'];
+                } else if (isset($currentFont['MissingWidth'])) {
+                    $w += $currentFont['MissingWidth'];
+                } else {
+                    $w += 500;
+                }
+            }
+        } else {
+            $l = strlen($s);
+            for ($i = 0; $i < $l; $i++) {
+                $w += $cw[$s[$i]];
             }
         }
-        else {
-            $l = strlen($s);
-            for($i=0;$i<$l;$i++)
-                $w += $cw[$s[$i]];
-        }
-        return $w*$this->FontSize/1000;
+        return $w * $document->getFontSize() / 1000;
     }
 
-
-    function Cell($w, $h=0, $txt='', $border=0, $ln=0, $align='', $fill=false, $link='')
+    /**
+     * Output a cell
+     *
+     * @param $w
+     * @param int $h
+     * @param string $txt
+     * @param int $border
+     * @param int $ln
+     * @param string $align
+     * @param bool $fill
+     * @param string $link
+     */
+    function cell($w, $h = 0, $txt = '', $border = 0, $ln = 0, $align = '', $fill = false, $link = '')
     {
-        // Output a cell
         $k = $this->k;
         if($this->y+$h>$this->PageBreakTrigger && !$this->InHeader && !$this->InFooter && $this->AcceptPageBreak())
         {
@@ -496,6 +540,105 @@ class PdfText {
         $ut = $this->CurrentFont['ut'];
         $w = $this->GetStringWidth($txt)+$this->ws*substr_count($txt,' ');
         return sprintf('%.2F %.2F %.2F %.2F re f',$x*$this->k,($this->h-($y-$up/1000*$this->FontSize))*$this->k,$w*$this->k,-$ut/1000*$this->FontSizePt);
+    }
+
+    /**
+     * Select a font; size given in points
+     *
+     * @param  $family
+     * @param  string $style
+     * @param  int $size
+     * @throws PdfException
+     */
+    public function setFont($family, $style = '', $size = 0)
+    {
+        $document   = $this->_pdfDocument;
+        $fontOutput = $document->getOutputter()->getFontOutputter();
+
+        if ($family == '') {
+            $family = $document->getFontFamily();
+        } else {
+            $family = strtolower($family);
+        }
+
+        $style = strtoupper($style);
+
+        if (strpos($style,'U') !== false) {
+            $document->setUnderline(true);
+            $style = str_replace('U', '', $style);
+        } else {
+            $document->setUnderline(false);
+        }
+
+        if ($style == 'IB') {
+            $style = 'BI';
+        }
+        if ($size == 0) {
+            $size = $document->getFontSizePt();
+        }
+
+        if ($document->getFontFamily() == $family && $document->getFontStyle() == $style && $document->getFontSizePt() == $size) {
+            return;
+        }
+
+        $fontkey = $family.$style;
+
+        if (!isset($fontOutput->fonts[$fontkey])) {
+            if ($family == 'arial') {
+                $family = 'helvetica';
+            }
+
+            if (in_array($family, $this->_coreFonts)) {
+                if ($family == 'symbol' || $family == 'zapfdingbats') {
+                    $style = '';
+                }
+                $fontkey = $family.$style;
+
+                if (!isset($fontOutput->fonts[$fontkey])) {
+                    $fontOutput->addFont($family, $style);
+                }
+            } else {
+                throw new PdfException("Undefined font: ".$family." ".$style);
+            }
+        }
+
+        // Select it
+        $document->setFontFamily($family);
+        $document->setFontStyle($style);
+        $document->setFontSizePt($size);
+        $document->setFontSize($size / $document->getScaleFactor());
+        $document->setCurrentFont($fontOutput->fonts[$fontkey]);
+
+        if ($fontOutput->fonts[$fontkey]['type'] == 'TTF') {
+            $document->setUnifontSubset(true);
+        } else {
+            $document->setUnifontSubset(false);
+        }
+
+        if ($document->getCurPageNo() > 0) {
+            $document->out(sprintf('BT /F%d %.2F Tf ET', $fontOutput->fonts[$fontkey]['i'], $document->getFontSizePt()));
+        }
+    }
+
+    /**
+     * Set font size in points
+     *
+     * @param $size
+     */
+    public function setFontSize($size)
+    {
+        $document   = $this->_pdfDocument;
+
+        if ($document->getFontSizePt() == $size) {
+            return;
+        }
+        $document->setFontSizePt($size);
+        $document->setFontSize($size / $document->getScaleFactor());
+        $currentFont = $document->getCurrentFont();
+
+        if ($document->getCurPageNo() > 0) {
+            $document->out(sprintf('BT /F%d %.2F Tf ET', $currentFont['i'], $document->getFontSizePt()));
+        }
     }
 
 }

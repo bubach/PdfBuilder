@@ -283,49 +283,98 @@ class PdfPage {
         $this->_pageBreakTrigger = $this->_h - $margin;
     }
 
-    //TODO ALL
-    function AcceptPageBreak()
+    /**
+     * Accept automatic page break or not
+     *
+     * @return mixed
+     */
+    function acceptPageBreak()
     {
-        // Accept automatic page break or not
-        return $this->AutoPageBreak;
+        return $this->_pdfDocument->getAutoPageBreak();
     }
 
-    function GetX()
+    /**
+     * Get height
+     *
+     * @return float
+     */
+    function getHeight()
     {
-        // Get x position
-        return $this->x;
+        return $this->_h;
     }
 
-    function SetX($x)
+    /**
+     * Get width
+     *
+     * @return float
+     */
+    function getWidth()
     {
-        // Set x position
-        if($x>=0)
-            $this->x = $x;
-        else
-            $this->x = $this->w+$x;
+        return $this->_w;
+    }
+    /**
+     * Get x position
+     *
+     * @return float
+     */
+    function getX()
+    {
+        return $this->_x;
     }
 
-    function GetY()
+    /**
+     * Set x position
+     *
+     * @param  $x
+     * @return $this
+     */
+    function setX($x)
     {
-        // Get y position
-        return $this->y;
+        if ($x >= 0) {
+            $this->_x = $x;
+        } else {
+            $this->_x = $this->_w + $x;
+        }
+        return $this;
     }
 
-    function SetY($y)
+    /**
+     * Get y position
+     *
+     * @return float
+     */
+    function getY()
     {
-        // Set y position and reset x
-        $this->x = $this->lMargin;
-        if($y>=0)
-            $this->y = $y;
-        else
-            $this->y = $this->h+$y;
+        return $this->_y;
     }
 
-    function SetXY($x, $y)
+    /**
+     * Set y position and reset x
+     *
+     * @param  $y
+     * @return $this
+     */
+    function setY($y)
     {
-        // Set x and y positions
-        $this->SetY($y);
-        $this->SetX($x);
+        $this->_x = $this->_lMargin;
+        if ($y >= 0) {
+            $this->_y = $y;
+        } else {
+            $this->_y = $this->_h + $y;
+        }
+        return $this;
+    }
+
+    /**
+     * Set x and y positions
+     *
+     * @param $x
+     * @param $y
+     */
+    function setXY($x, $y)
+    {
+        $this->setY($y);
+        $this->setX($x);
     }
 
     /**

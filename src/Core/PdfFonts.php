@@ -350,9 +350,11 @@ class PdfFonts {
      */
     protected function _loadfont($font)
     {
-        include($this->_pdfOutput->getDocument()->getFontPath().$font);
+        $path = $this->_pdfOutput->getDocument()->getFontPath();
+        include($path.$font);
         $a = get_defined_vars();
-        if(!isset($a['name'])) {
+
+        if (!isset($a['name'])) {
             throw new PdfException("Could not include font definition file");
         }
         return $a;
@@ -498,10 +500,11 @@ class PdfFonts {
      * @param string $file
      * @param bool $uni
      */
-    function addFont($family, $style = '', $file = '', $uni = true)
+    function addFont($family, $style = '', $file = '', $uni = false) //helvetica, B
     {
-        $family = strtolower($family);
-        $style  = strtoupper($style);
+        $family   = strtolower($family);
+        $style    = strtoupper($style);
+        $fontPath = $this->_pdfOutput->getDocument()->getFontPath();
 
         if ($style == 'IB') {
             $style = 'BI';
@@ -525,13 +528,13 @@ class PdfFonts {
             if (defined("_SYSTEM_TTFONTS") && file_exists(_SYSTEM_TTFONTS.$file )) {
                 $ttffilename = _SYSTEM_TTFONTS.$file;
             } else {
-                $ttffilename = $this->_pdfOutput->getDocument()->getFontPath().'Unifonts/'.$file;
+                $ttffilename = $fontPath.'Unifonts/'.$file;
             }
 
-            $unifilename  = $this->_pdfOutput->getDocument()->getFontPath().'Unifonts/'.strtolower(substr($file ,0,(strpos($file ,'.'))));
+            $unifilename  = $fontPath.'Unifonts/'.strtolower(substr($file ,0,(strpos($file ,'.'))));
             $name         = '';
             $originalsize = 0;
-            $ttfstat      = stat($ttffilename);
+            $ttfstat      = @stat($ttffilename);
 
             if (file_exists($unifilename.'.mtx.php')) {
                 include($unifilename.'.mtx.php');
@@ -539,8 +542,8 @@ class PdfFonts {
 
             if (!isset($type) || !isset($name) || $originalsize != $ttfstat['size']) {
                 $ttffile = $ttffilename;
-                require_once($this->_pdfOutput->getDocument()->getFontPath().'Unifonts/ttfonts.php');
-                $ttf = new TTFontFile();
+                require_once($fontPath.'Unifonts/ttfonts.php');
+                $ttf = new \TTFontFile();
                 $ttf->getMetrics($ttffile);
 
                 $cw   = $ttf->charWidths;
@@ -564,14 +567,14 @@ class PdfFonts {
 
                 // Generate metrics .php file
                 $s  = '<?php'."\n";
-                $s .= '$name        = \''.$name."';\n";
+                $s .= '$name         = \''.$name."';\n";
                 $s .= '$type         = \''.$type."';\n";
                 $s .= '$desc         = '.var_export($desc,true).";\n";
                 $s .= '$up           ='.$up.";\n";
                 $s .= '$ut           ='.$ut.";\n";
                 $s .= '$ttffile      =\''.$ttffile."';\n";
                 $s .= '$originalsize ='.$originalsize.";\n";
-                $s .= '$fontkey=\''.$fontkey."';\n";
+                $s .= '$fontkey      = \''.$fontkey."';\n";
 
                 if (is_writable(dirname($this->_pdfOutput->getDocument()->getFontPath().'Unifonts/'.'x'))) {
                     $fh = fopen($unifilename.'.mtx.php', "w");
@@ -636,84 +639,6 @@ class PdfFonts {
             }
             $this->fonts[$fontkey] = $info;
         }
-    }
-
-    /**
-     * Select a font; size given in points
-     *
-     * @param $family
-     * @param string $style
-     * @param int $size
-     */
-    function SetFont($family, $style = '', $size = 0)
-    {
-        $document = $this->_pdfOutput->getDocument();
-
-        if ($family == '') {
-            $family = $document->getFontFamily();
-        } else {
-            $family = strtolower($family);
-        }
-
-        $style = strtoupper($style);
-
-        if (strpos($style,'U') !== false) {
-            $document->setUnderline(true);
-            $style = str_replace('U', '', $style);
-        } else {
-            $document->setUnderline(false);
-        }
-
-        if ($style == 'IB') {
-            $style = 'BI';
-        }
-        if ($size == 0) {
-            $size = $document->getFontSizePt();
-        }
-
-        if ($document->getFontFamily() == $family && $document->getFontStyle() == $style && $document->getFontSizePt() == $size) {
-            return;
-        }
-
-        $fontkey = $family.$style;
-
-        if (!isset($this->fonts[$fontkey])) {
-            if ($family == 'arial') {
-                $family = 'helvetica';
-            }
-
-            if (in_array($family, $this->_CoreFonts))
-            {
-                if($family=='symbol' || $family=='zapfdingbats')
-                    $style = '';
-                $fontkey = $family.$style;
-                if(!isset($this->fonts[$fontkey]))
-                    $this->AddFont($family,$style);
-            }
-            else
-                $this->Error('Undefined font: '.$family.' '.$style);
-        }
-        // Select it
-        $this->FontFamily = $family;
-        $this->FontStyle = $style;
-        $this->FontSizePt = $size;
-        $this->FontSize = $size/$this->k;
-        $this->CurrentFont = &$this->fonts[$fontkey];
-        if ($this->fonts[$fontkey]['type']=='TTF') { $this->unifontSubset = true; }
-        else { $this->unifontSubset = false; }
-        if($this->page>0)
-            $output->out(sprintf('BT /F%d %.2F Tf ET',$this->CurrentFont['i'],$this->FontSizePt));
-    }
-
-    function SetFontSize($size)
-    {
-        // Set font size in points
-        if($this->FontSizePt==$size)
-            return;
-        $this->FontSizePt = $size;
-        $this->FontSize = $size/$this->k;
-        if($this->page>0)
-            $output->out(sprintf('BT /F%d %.2F Tf ET',$this->CurrentFont['i'],$this->FontSizePt));
     }
 
 } 
