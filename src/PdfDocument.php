@@ -597,6 +597,7 @@ class PdfDocument {
         if ($class) {
             if (!is_object($class)) {
                 $class = new $class($this);
+                $this->plugins[$method] = $class;
             }
             return call_user_func(array($class, $method));
         } else {
@@ -619,6 +620,7 @@ class PdfDocument {
         if ($class) {
             if (!is_object($class)) {
                 $class = new $class($this);
+                $this->plugins[$method] = $class;
             }
             return call_user_func_array(array($class, $method), $value);
         } else {
