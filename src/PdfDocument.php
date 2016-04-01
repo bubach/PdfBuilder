@@ -388,6 +388,19 @@ class PdfDocument {
     }
 
     /**
+     * Add a TrueType, OpenType or Type1 font
+     *
+     * @param $family
+     * @param string $style
+     * @param string $file
+     * @param bool $uni
+     */
+    public function addFont($family, $style = '', $file = '', $uni = false)
+    {
+        $this->getOutputter()->getFontOutputter()->addFont($family, $style, $file, $uni);
+    }
+
+    /**
      * Set display mode in viewer
      *
      * @param  $zoom
@@ -626,19 +639,18 @@ class PdfDocument {
      */
     public function __call($method, $parameters)
     {
-        if (substr($method, 0, 3) == "set") {
-            return $this->__set(substr($method, 3), $parameters);
-        } else if (substr($method, 0, 3) == "get") {
-            return $this->__get(substr($method, 3));
-        }
-
         $class = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
 
         if ($class) {
             if (!is_object($class)) {
                 $class = new $class($this);
+                $this->plugins[$method] = $class;
             }
             return call_user_func_array(array($class, $method), $parameters);
+        } else if (substr($method, 0, 3) == "set") {
+            return $this->__set(substr($method, 3), $parameters);
+        } else if (substr($method, 0, 3) == "get") {
+            return $this->__get(substr($method, 3));
         } else if ($this->getCurPageNo() > 0) {
             return call_user_func_array(array($this->getPage(), $method), $parameters);
         } else {

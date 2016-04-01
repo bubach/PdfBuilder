@@ -83,7 +83,7 @@ class PdfFonts {
         $this->fonts[$k]['n'] = $output->getPdfObjects()+1;
         require_once($this->_pdfOutput->getDocument()->getFontPath().'Unifonts/ttfonts.php');
 
-        $ttf      = new TTFontFile();
+        $ttf      = new \TTFontFile();
         $fontname = 'MPDFAA'.'+'.$font['name'];
         $subset   = $font['subset'];
 
@@ -500,7 +500,7 @@ class PdfFonts {
      * @param string $file
      * @param bool $uni
      */
-    function addFont($family, $style = '', $file = '', $uni = false) //helvetica, B
+    public function addFont($family, $style = '', $file = '', $uni = false) //helvetica, B
     {
         $family   = strtolower($family);
         $style    = strtoupper($style);
