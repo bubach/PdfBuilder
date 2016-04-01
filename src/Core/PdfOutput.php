@@ -209,30 +209,32 @@ class PdfOutput {
      */
     protected function _putPages()
     {
-        $nb = $this->_pdfDocument->getCurPageNo();
+        $document = $this->_pdfDocument;
+        $nb       = $document->getCurPageNo();
+        $aliasNb  = $document->getAliasNbPages();
 
-        if (!empty($this->_aliasNbPages)) {
-            $alias = $this->UTF8ToUTF16BE($this->_aliasNbPages, false);
+        if (!empty($aliasNb)) {
+            $alias = $this->UTF8ToUTF16BE($aliasNb, false);
             $r     = $this->UTF8ToUTF16BE("$nb", false);
 
             for ($n = 1; $n <= $nb; $n++) {
-                $this->_pdfDocument->getPage($n)->pageBuffer = str_replace($alias, $r, $this->_pdfDocument->getPage($n)->pageBuffer);
+                $document->getPage($n)->pageBuffer = str_replace($alias, $r, $document->getPage($n)->pageBuffer);
             }
             for ($n = 1; $n <= $nb; $n++) {
-                $this->_pdfDocument->getPage($n)->pageBuffer = str_replace($this->_aliasNbPages, $nb, $this->_pdfDocument->getPage($n)->pageBuffer);
+                $document->getPage($n)->pageBuffer = str_replace($aliasNb, $nb, $document->getPage($n)->pageBuffer);
             }
         }
 
-        $defPageSize = $this->_pdfDocument->getDefPageSize();
-        if ($this->_pdfDocument->getDefOrientation() == 'P') {
-            $wPt = $defPageSize[0] * $this->_pdfDocument->getScaleFactor();
-            $hPt = $defPageSize[1] * $this->_pdfDocument->getScaleFactor();
+        $defPageSize = $document->getDefPageSize();
+        if ($document->getDefOrientation() == 'P') {
+            $wPt = $defPageSize[0] * $document->getScaleFactor();
+            $hPt = $defPageSize[1] * $document->getScaleFactor();
         } else {
-            $wPt = $defPageSize[1] * $this->_pdfDocument->getScaleFactor();
-            $hPt = $defPageSize[0] * $this->_pdfDocument->getScaleFactor();
+            $wPt = $defPageSize[1] * $document->getScaleFactor();
+            $hPt = $defPageSize[0] * $document->getScaleFactor();
         }
 
-        $filter = empty($this->_compress) ? '' : '/Filter /FlateDecode ';
+        $filter = $document->getDoCompress() ? '/Filter /FlateDecode ' : '';
         $this->_loopOutPages($nb, $filter, $hPt);
 
         $this->setPdfObjectOffset(1, strlen($this->outBuffer));
@@ -259,44 +261,46 @@ class PdfOutput {
      */
     protected function _loopOutPages($nb, $filter, $hPt)
     {
+        $document = $this->_pdfDocument;
+
         for ($n = 1; $n <= $nb; $n++) {
             $this->newObj();
             $this->out('<</Type /Page');
             $this->out('/Parent 1 0 R');
 
-            if ($pageSize = $this->_pdfDocument->getPageSize($n - 1)) {
+            if ($pageSize = $document->getPageSize($n - 1)) {
                 $this->out(sprintf('/MediaBox [0 0 %.2F %.2F]', $pageSize[0], $pageSize[1]));
             }
 
             $this->out('/Resources 2 0 R');
 
-            if (!empty($this->_pdfDocument->getPage($n - 1)->pageLinks)) {
+            if (!empty($document->getPage($n - 1)->pageLinks)) {
                 $annots = '/Annots [';
 
-                foreach($this->_pdfDocument->getPage($n)->pageLinks as $pl) {
+                foreach ($document->getPage($n)->pageLinks as $pl) {
                     $rect    = sprintf('%.2F %.2F %.2F %.2F', $pl[0], $pl[1], $pl[0] + $pl[2], $pl[1] - $pl[3]);
                     $annots .= '<</Type /Annot /Subtype /Link /Rect ['.$rect.'] /Border [0 0 0] ';
 
                     if (is_string($pl[4])) {
                         $annots .= '/A <</S /URI /URI '.$this->textstring($pl[4]).'>>>>';
                     } else {
-                        $l        = $this->_pdfDocument->internalLinks[$pl[4]];
-                        $pageSize = $this->_pdfDocument->getPageSize($l[0]);
+                        $l        = $document->internalLinks[$pl[4]];
+                        $pageSize = $document->getPageSize($l[0]);
                         $h        = !empty($pageSize) ? $pageSize[1] : $hPt;
-                        $annots  .= sprintf('/Dest [%d 0 R /XYZ 0 %.2F null]>>', 1 + 2 * $l[0], $h - $l[1] * $this->_pdfDocument->getScaleFactor());
+                        $annots  .= sprintf('/Dest [%d 0 R /XYZ 0 %.2F null]>>', 1 + 2 * $l[0], $h - $l[1] * $document->getScaleFactor());
                     }
                 }
                 $this->out($annots.']');
             }
 
-            if ($this->_pdfDocument->pdfVersion > '1.3') {
+            if ($document->pdfVersion > '1.3') {
                 $this->out('/Group <</Type /Group /S /Transparency /CS /DeviceRGB>>');
             }
 
             $this->out('/Contents '.($this->getPdfObjects() + 1).' 0 R>>');
             $this->out('endobj');
 
-            $p = empty($this->_compress) ? $this->_pdfDocument->getPage($n)->pageBuffer : gzcompress($this->_pdfDocument->getPage($n)->pageBuffer);
+            $p = $document->getDoCompress() ? gzcompress($document->getPage($n)->pageBuffer) : $document->getPage($n)->pageBuffer;
             $this->newObj();
             $this->out('<<'.$filter.'/Length '.strlen($p).'>>');
             $this->putStream($p);

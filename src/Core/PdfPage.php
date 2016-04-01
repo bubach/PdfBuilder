@@ -99,7 +99,7 @@ class PdfPage {
     /**
      * Output buffer for page content
      *
-     * @var
+     * @var string
      */
     public $pageBuffer;
 
@@ -111,11 +111,11 @@ class PdfPage {
      * @param string      $size
      * @throws PdfException
      */
-    public function __construct(PdfDocument $pdfDocument, $orientation, $size)
+    public function initPage(PdfDocument $pdfDocument, $orientation, $size)
     {
         $this->_pdfDocument = $pdfDocument;
-
-        $size = $this->_getPageSize($size);
+        $this->pageBuffer   = "2 J\n";
+        $size               = $this->_getPageSize($size);
         $this->_curPageSize = $size;
 
         $orientation = strtolower($orientation);
@@ -134,11 +134,13 @@ class PdfPage {
         $this->_wPt = $this->_w * $pdfDocument->getScaleFactor();
         $this->_hPt = $this->_h * $pdfDocument->getScaleFactor();
 
-        if ($pdfDocument->getCurPageNo() > 0) {
+        if ($pdfDocument->getCurPageNo() > 1) {
             $defPageSize = $pdfDocument->getDefPageSize();
             if ($orientation != $pdfDocument->getDefOrientation() || $size[0] != $defPageSize[0] || $size[1] != $defPageSize[1]) {
                 $pdfDocument->addPageSize($this->_wPt, $this->_hPt);
             }
+        } else {
+            $pdfDocument->setDefPageSize($this->getCurPageSize());
         }
 
         $margin = 28.35 / $pdfDocument->getScaleFactor();

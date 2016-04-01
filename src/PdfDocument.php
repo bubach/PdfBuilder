@@ -143,6 +143,11 @@ class PdfDocument {
         $this->setDefOrientation($orientation);
         $this->setDefSizeFormat($size);
         $this->setDisplayMode('default');
+        $this->setDoCompress(false);
+
+        if (function_exists('gzcompress')) {
+            $this->setDoCompress(true);
+        }
 
         $this->_pdfOutput = new PdfOutput($this);
     }
@@ -450,21 +455,18 @@ class PdfDocument {
 
             $orientation = empty($orientation) ? $this->getPage()->getOrientation() : $orientation;
             $size        = empty($size) ? $this->getPage()->getCurPageSize() : $size;
-            $page        = new PdfPage($this, $orientation, $size);
-
-            $page->setData($this->getPage()->getData());
         } else {
             $orientation = empty($orientation) ? $this->_defOrientation : $orientation;
             $size        = empty($size) ? $this->_defSizeFormat : $size;
-            $page        = new PdfPage($this, $orientation, $size);
-
-            $this->setDefPageSize($page->getCurPageSize());
         }
 
-        $this->_pages[] = $page;
         $this->_curPage++;
         $this->setState(self::STATE_NEW_PAGE);
-        $this->out('2 J');
+
+        $page = new PdfPage();
+        $this->_pages[] = $page;
+        $page->initPage($this, $orientation, $size);
+
         $this->outputHeader();
 
         return $page;
@@ -605,8 +607,11 @@ class PdfDocument {
             if (!is_object($class)) {
                 $class = new $class($this);
             }
-            return call_user_func(array($class, $method), $value);
+            return call_user_func_array(array($class, $method), $value);
         } else {
+            if (is_array($value) && count($value) < 2) {
+                $value = reset($value);
+            }
             $this->data[$name] = $value;
             return $this;
         }
@@ -622,7 +627,7 @@ class PdfDocument {
     public function __call($method, $parameters)
     {
         if (substr($method, 0, 3) == "set") {
-            return $this->__set(substr($method, 3), reset($parameters));
+            return $this->__set(substr($method, 3), $parameters);
         } else if (substr($method, 0, 3) == "get") {
             return $this->__get(substr($method, 3));
         }
