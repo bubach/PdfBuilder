@@ -268,7 +268,7 @@ class PdfOutput {
             $this->out('<</Type /Page');
             $this->out('/Parent 1 0 R');
 
-            if ($pageSize = $document->getPageSize($n - 1)) {
+            if ($pageSize = $document->getPageSize($n)) {
                 $this->out(sprintf('/MediaBox [0 0 %.2F %.2F]', $pageSize[0], $pageSize[1]));
             }
 
