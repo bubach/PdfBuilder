@@ -44,7 +44,7 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase {
         $pdfBuilder->addPage();
         $pdfBuilder->addFont('BabelStone Han','','BabelStoneHan.ttf', true);
         $pdfBuilder->setFont('BabelStone Han', '', 16);
-        $pdfBuilder->text(10, 5, 'Hello World!');
+        $pdfBuilder->text(10, 5, 'На берегу пустынных волн - 宋体/明體');
         $this->assertEquals('', $pdfBuilder->output("test4.pdf", "F"));
     }
 

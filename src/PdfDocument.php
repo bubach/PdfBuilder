@@ -649,12 +649,12 @@ class PdfDocument {
                 $this->plugins[$method] = $class;
             }
             return call_user_func_array(array($class, $method), $parameters);
+        } else if ($this->getCurPageNo() > 0 && method_exists($this->getPage(), $method)) {
+            return call_user_func_array(array($this->getPage(), $method), $parameters);
         } else if (substr($method, 0, 3) == "set") {
             return $this->__set(substr($method, 3), $parameters);
         } else if (substr($method, 0, 3) == "get") {
             return $this->__get(substr($method, 3));
-        } else if ($this->getCurPageNo() > 0) {
-            return call_user_func_array(array($this->getPage(), $method), $parameters);
         } else {
             return false;
         }

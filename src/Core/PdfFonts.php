@@ -570,10 +570,10 @@ class PdfFonts {
                 $s .= '$name         = \''.$name."';\n";
                 $s .= '$type         = \''.$type."';\n";
                 $s .= '$desc         = '.var_export($desc,true).";\n";
-                $s .= '$up           ='.$up.";\n";
-                $s .= '$ut           ='.$ut.";\n";
-                $s .= '$ttffile      =\''.$ttffile."';\n";
-                $s .= '$originalsize ='.$originalsize.";\n";
+                $s .= '$up           = '.$up.";\n";
+                $s .= '$ut           = '.$ut.";\n";
+                $s .= '$ttffile      = \''.$ttffile."';\n";
+                $s .= '$originalsize = '.$originalsize.";\n";
                 $s .= '$fontkey      = \''.$fontkey."';\n";
 
                 if (is_writable(dirname($this->_pdfOutput->getDocument()->getFontPath().'Unifonts/'.'x'))) {

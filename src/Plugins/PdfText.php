@@ -54,13 +54,12 @@ class PdfText {
 
         if ($this->_pdfDocument->getUnifontSubset()) {
             $txt2 = '('.$pdfOutput->escape($pdfOutput->UTF8ToUTF16BE($txt, false)).')';
-            $currentFont = &$document->getCurrentFont();
+            $fontOutputter = $pdfOutput->getFontOutputter();
+            $currentFont   = &$fontOutputter->fonts[$document->getCurrentFont()];
 
             foreach ($pdfOutput->UTF8StringToArray($txt) as $uni) {
                 $currentFont['subset'][$uni] = $uni;
             }
-
-            $document->setCurrentFont($currentFont);
         } else {
             $txt2 = '('.$pdfOutput->escape($txt).')';
         }
@@ -548,6 +547,7 @@ class PdfText {
      * @param  $family
      * @param  string $style
      * @param  int $size
+     * @return \PdfBuilder\PdfDocument
      * @throws PdfException
      */
     public function setFont($family, $style = '', $size = 0)
@@ -607,7 +607,7 @@ class PdfText {
         $document->setFontStyle($style);
         $document->setFontSizePt($size);
         $document->setFontSize($size / $document->getScaleFactor());
-        $document->setCurrentFont($fontOutput->fonts[$fontkey]);
+        $document->setCurrentFont($fontkey);
 
         if ($fontOutput->fonts[$fontkey]['type'] == 'TTF') {
             $document->setUnifontSubset(true);
@@ -618,6 +618,8 @@ class PdfText {
         if ($document->getCurPageNo() > 0) {
             $document->out(sprintf('BT /F%d %.2F Tf ET', $fontOutput->fonts[$fontkey]['i'], $document->getFontSizePt()));
         }
+
+        return $document;
     }
 
     /**
@@ -628,6 +630,7 @@ class PdfText {
     public function setFontSize($size)
     {
         $document   = $this->_pdfDocument;
+        $fontOutput = $document->getOutputter()->getFontOutputter();
 
         if ($document->getFontSizePt() == $size) {
             return;
@@ -637,7 +640,7 @@ class PdfText {
         $currentFont = $document->getCurrentFont();
 
         if ($document->getCurPageNo() > 0) {
-            $document->out(sprintf('BT /F%d %.2F Tf ET', $currentFont['i'], $document->getFontSizePt()));
+            $document->out(sprintf('BT /F%d %.2F Tf ET', $fontOutput->fonts[$currentFont]['i'], $document->getFontSizePt()));
         }
     }
 
