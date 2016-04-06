@@ -48,4 +48,17 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals('', $pdfBuilder->output("test4.pdf", "F"));
     }
 
+    /**
+     * Testing simple cell output
+     */
+    public function testCellOutput()
+    {
+        $pdfBuilder = new PdfDocument();
+        $pdfBuilder->addPage();
+        $pdfBuilder->setFont('Arial','B',16);
+        $pdfBuilder->cell(40,10,'Hello World !',1);
+        $pdfBuilder->cell(80,10,'Powered by PdfBuilder.',0,1,'C');
+        $this->assertEquals('', $pdfBuilder->output("test5.pdf", "F"));
+    }
+
 }

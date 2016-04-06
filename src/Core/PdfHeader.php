@@ -53,11 +53,13 @@ class PdfHeader {
     public function outputHeader()
     {
         $this->_dataCopy = $this->_pdfDocument->data;
+        $this->_pdfDocument->setInHeaderOrFooter(true);
 
         if (is_callable($this->_headerCallback)) {
             call_user_func($this->_headerCallback, $this->_pdfDocument);
         }
 
+        $this->_pdfDocument->setInHeaderOrFooter(false);
         foreach ($this->_dataCopy as $key => $value) {
             if ($value !== $this->_pdfDocument->data[$key]) {
                 $method = "set".ucfirst($key);

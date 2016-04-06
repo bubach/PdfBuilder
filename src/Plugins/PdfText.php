@@ -23,6 +23,16 @@ class PdfText {
     );
 
     /**
+     * @var int Word spacing
+     */
+    protected $_ws = 0;
+
+    /**
+     * @var int Last cell height
+     */
+    protected $_lastH = 0;
+
+    /**
      * Constructor
      *
      * @param PdfDocument $pdfDocument
@@ -102,9 +112,10 @@ class PdfText {
      */
     public function getStringWidth($s)
     {
-        $document    = $this->_pdfDocument;
-        $output      = $document->getOutputter();
-        $currentFont = &$document->getCurrentFont();
+        $document     = $this->_pdfDocument;
+        $output       = $document->getOutputter();
+        $selectedFont = $document->getCurrentFont();
+        $currentFont  = &$output->getFontOutputter()->fonts[$selectedFont];
 
         $s  = (string)$s;
         $cw = $currentFont['cw'];
@@ -149,115 +160,153 @@ class PdfText {
      */
     function cell($w, $h = 0, $txt = '', $border = 0, $ln = 0, $align = '', $fill = false, $link = '')
     {
-        $k = $this->k;
-        if($this->y+$h>$this->PageBreakTrigger && !$this->InHeader && !$this->InFooter && $this->AcceptPageBreak())
-        {
-            // Automatic page break
-            $x = $this->x;
-            $ws = $this->ws;
-            if($ws>0)
-            {
-                $this->ws = 0;
-                $this->_out('0 Tw');
+        $document = $this->_pdfDocument;
+        $output   = $document->getOutputter();
+        $page     = $document->getPage();
+        $k        = $document->getScaleFactor();
+
+        $selectedFont = $document->getCurrentFont();
+        $currentFont  = &$output->getFontOutputter()->fonts[$selectedFont];
+
+        // Automatic page break
+        if ($page->getY() + $h > $page->getPageBreakTrigger() && !$document->getInHeaderOrFooter() && $page->acceptPageBreak()) {
+            $x  = $page->getX();
+            $ws = $this->_ws;
+            if ($ws > 0) {
+                $this->_ws = 0;
+                $document->out('0 Tw');
             }
-            $this->AddPage($this->CurOrientation,$this->CurPageSize);
-            $this->x = $x;
-            if($ws>0)
-            {
-                $this->ws = $ws;
-                $this->_out(sprintf('%.3F Tw',$ws*$k));
+            $page = $document->addPage($document->getPage()->getOrientation(), $document->getPage()->getCurPageSize());
+            $page->setX($x);
+            if ($ws > 0) {
+                $this->_ws = $ws;
+                $document->out(sprintf('%.3F Tw',$ws*$k));
             }
         }
-        if($w==0)
-            $w = $this->w-$this->rMargin-$this->x;
+
+        if ($w == 0) {
+            $w = $page->getWidth() - $page->getRightMargin() - $document->getScaleFactor();
+        }
         $s = '';
-        if($fill || $border==1)
-        {
-            if($fill)
+
+        if ($fill || $border == 1) {
+            if ($fill) {
                 $op = ($border==1) ? 'B' : 'f';
-            else
+            } else {
                 $op = 'S';
-            $s = sprintf('%.2F %.2F %.2F %.2F re %s ',$this->x*$k,($this->h-$this->y)*$k,$w*$k,-$h*$k,$op);
+            }
+            $s = sprintf('%.2F %.2F %.2F %.2F re %s ',$page->getX() * $k, ($page->getHeight() - $page->getY()) * $k , $w * $k, -$h * $k, $op);
         }
-        if(is_string($border))
-        {
-            $x = $this->x;
-            $y = $this->y;
-            if(strpos($border,'L')!==false)
-                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ',$x*$k,($this->h-$y)*$k,$x*$k,($this->h-($y+$h))*$k);
-            if(strpos($border,'T')!==false)
-                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ',$x*$k,($this->h-$y)*$k,($x+$w)*$k,($this->h-$y)*$k);
-            if(strpos($border,'R')!==false)
-                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ',($x+$w)*$k,($this->h-$y)*$k,($x+$w)*$k,($this->h-($y+$h))*$k);
-            if(strpos($border,'B')!==false)
-                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ',$x*$k,($this->h-($y+$h))*$k,($x+$w)*$k,($this->h-($y+$h))*$k);
+
+        if (is_string($border)) {
+            $x = $page->getX();
+            $y = $page->getY();
+            if (strpos($border,'L') !== false) {
+                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ',$x * $k, ($page->getHeight() - $y) * $k, $x * $k, ($page->getHeight()- ($y + $h)) * $k);
+            }
+            if (strpos($border,'T') !== false) {
+                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ',$x * $k,($page->getHeight() - $y) * $k, ($x + $w) * $k,($page->getHeight() - $y) * $k);
+            }
+            if (strpos($border,'R') !== false) {
+                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ', ($x + $w) * $k,($page->getHeight() - $y) * $k, ($x + $w) * $k,($page->getHeight() - ($y + $h)) * $k);
+            }
+            if (strpos($border,'B') !== false) {
+                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ', $x * $k,($page->getHeight() - ($y+$h)) * $k, ($x+$w) * $k, ($page->getHeight()-($y+$h)) * $k);
+            }
         }
-        if($txt!=='')
-        {
-            if($align=='R')
-                $dx = $w-$this->cMargin-$this->GetStringWidth($txt);
-            elseif($align=='C')
-                $dx = ($w-$this->GetStringWidth($txt))/2;
-            else
-                $dx = $this->cMargin;
-            if($this->ColorFlag)
-                $s .= 'q '.$this->TextColor.' ';
+
+        if ($txt !== '') {
+            if ($align == 'R') {
+                $dx = $w - $page->getCellMargin() - $this->getStringWidth($txt);
+            } elseif ($align == 'C') {
+                $dx = ($w - $this->getStringWidth($txt)) / 2;
+            } else {
+                $dx = $page->getCellMargin();
+            }
+
+            if ($document->getColorFlag()) {
+                $s .= 'q '.$document->getTextColor().' ';
+            }
 
             // If multibyte, Tw has no effect - do word spacing using an adjustment before each space
-            if ($this->ws && $this->unifontSubset) {
-                foreach($this->UTF8StringToArray($txt) as $uni)
-                    $this->CurrentFont['subset'][$uni] = $uni;
-                $space = $this->_escape($this->UTF8ToUTF16BE(' ', false));
-                $s .= sprintf('BT 0 Tw %.2F %.2F Td [',($this->x+$dx)*$k,($this->h-($this->y+.5*$h+.3*$this->FontSize))*$k);
-                $t = explode(' ',$txt);
+            if ($this->_ws && $document->getUnifontSubset()) {
+
+                foreach ($output->UTF8StringToArray($txt) as $uni) {
+                    $currentFont['subset'][$uni] = $uni;
+                }
+                $space = $output->escape($output->UTF8ToUTF16BE(' ', false));
+                $s .= sprintf('BT 0 Tw %.2F %.2F Td [',
+                    ($page->getX() + $dx) * $k,
+                    ($page->getHeight() - ($page->getY() + .5 * $h + .3 * $document->getFontSize())) * $k);
+                $t    = explode(' ',$txt);
                 $numt = count($t);
-                for($i=0;$i<$numt;$i++) {
+
+                for ($i =0; $i < $numt; $i++) {
                     $tx = $t[$i];
-                    $tx = '('.$this->_escape($this->UTF8ToUTF16BE($tx, false)).')';
+                    $tx = '('.$output->escape($output->UTF8ToUTF16BE($tx, false)).')';
                     $s .= sprintf('%s ',$tx);
-                    if (($i+1)<$numt) {
-                        $adj = -($this->ws*$this->k)*1000/$this->FontSizePt;
-                        $s .= sprintf('%d(%s) ',$adj,$space);
+                    if (($i + 1) < $numt) {
+                        $adj = -($this->_ws * $k) * 1000 / $document->getFontSizePt();
+                        $s  .= sprintf('%d(%s) ', $adj, $space);
                     }
                 }
                 $s .= '] TJ';
                 $s .= ' ET';
-            }
-            else {
-                if ($this->unifontSubset)
-                {
-                    $txt2 = '('.$this->_escape($this->UTF8ToUTF16BE($txt, false)).')';
-                    foreach($this->UTF8StringToArray($txt) as $uni)
-                        $this->CurrentFont['subset'][$uni] = $uni;
+            } else {
+                if ($document->getUnifontSubset()) {
+                    $txt2 = '('.$output->escape($output->UTF8ToUTF16BE($txt, false)).')';
+                    foreach ($output->UTF8StringToArray($txt) as $uni) {
+                        $currentFont['subset'][$uni] = $uni;
+                    }
+                } else {
+                    $txt2 = '('.str_replace(')','\\)',str_replace('(','\\(',str_replace('\\','\\\\',$txt))).')';
                 }
-                else
-                    $txt2='('.str_replace(')','\\)',str_replace('(','\\(',str_replace('\\','\\\\',$txt))).')';
-                $s .= sprintf('BT %.2F %.2F Td %s Tj ET',($this->x+$dx)*$k,($this->h-($this->y+.5*$h+.3*$this->FontSize))*$k,$txt2);
+                $s .= sprintf('BT %.2F %.2F Td %s Tj ET',
+                    ($page->getX() + $dx) * $k,
+                    ($page->getHeight() - ($page->getY() + .5 * $h + .3 * $document->getFontSize())) * $k,
+                    $txt2);
             }
-            if($this->underline)
-                $s .= ' '.$this->_dounderline($this->x+$dx,$this->y+.5*$h+.3*$this->FontSize,$txt);
-            if($this->ColorFlag)
+            if ($document->getUnderline()) {
+                $s .= ' '.$this->_dounderline($page->getX() + $dx, $page->getY() + .5 * $h + .3 * $document->getFontSize(), $txt);
+            }
+            if ($document->getColorFlag()) {
                 $s .= ' Q';
-            if($link)
-                $this->Link($this->x+$dx,$this->y+.5*$h-.5*$this->FontSize,$this->GetStringWidth($txt),$this->FontSize,$link);
+            }
+            if ($link) {
+                $page->link($page->getX() + $dx,
+                    $page->getY() + .5 * $h - .5 * $document->getFontSize(),
+                    $this->getStringWidth($txt),
+                    $document->getFontSize(),
+                    $link);
+            }
         }
-        if($s)
-            $this->_out($s);
-        $this->lasth = $h;
-        if($ln>0)
-        {
-            // Go to next line
-            $this->y += $h;
-            if($ln==1)
-                $this->x = $this->lMargin;
+
+        if ($s) {
+            $document->out($s);
         }
-        else
-            $this->x += $w;
+        $this->_lastH = $h;
+        if ($ln > 0) {
+            $page->setY($page->getY() + $h);
+            if ($ln == 1) {
+                $page->setX($page->getLeftMargin());
+            }
+        } else {
+            $page->setX($page->getX() + $w);
+        }
     }
 
-    function MultiCell($w, $h, $txt, $border=0, $align='J', $fill=false)
+    /**
+     * Output text with automatic or explicit line breaks
+     *
+     * @param $w
+     * @param $h
+     * @param $txt
+     * @param int $border
+     * @param string $align
+     * @param bool $fill
+     */
+    function multiCell($w, $h, $txt, $border=0, $align='J', $fill=false)
     {
-        // Output text with automatic or explicit line breaks
         $cw = &$this->CurrentFont['cw'];
         if($w==0)
             $w = $this->w-$this->rMargin-$this->x;
@@ -522,23 +571,38 @@ class PdfText {
         }
     }
 
-    function Ln($h=null)
+    /**
+     * Line feed; default value is last cell height
+     *
+     * @param null $h
+     */
+    function ln($h=null)
     {
-        // Line feed; default value is last cell height
         $this->x = $this->lMargin;
-        if($h===null)
+
+        if ($h === null) {
             $this->y += $this->lasth;
-        else
+        } else {
             $this->y += $h;
+        }
     }
 
-    function _dounderline($x, $y, $txt)
+    /**
+     * Underline text
+     *
+     * @param $x
+     * @param $y
+     * @param $txt
+     * @return string
+     */
+    protected function _dounderline($x, $y, $txt)
     {
-        // Underline text
-        $up = $this->CurrentFont['up'];
-        $ut = $this->CurrentFont['ut'];
-        $w = $this->GetStringWidth($txt)+$this->ws*substr_count($txt,' ');
-        return sprintf('%.2F %.2F %.2F %.2F re f',$x*$this->k,($this->h-($y-$up/1000*$this->FontSize))*$this->k,$w*$this->k,-$ut/1000*$this->FontSizePt);
+        $fontOutput = $this->_pdfDocument->getOutputter()->getFontOutputter();
+
+        $up = $fontOutput->fonts[$this->_pdfDocument->getCurrentFont()]['up'];
+        $ut = $fontOutput->fonts[$this->_pdfDocument->getCurrentFont()]['ut'];
+        $w  = $this->getStringWidth($txt) + $this->_ws * substr_count($txt,' ');
+        return sprintf('%.2F %.2F %.2F %.2F re f', $x*$this->k,($this->h-($y-$up/1000*$this->FontSize))*$this->k,$w*$this->k,-$ut/1000*$this->FontSizePt);
     }
 
     /**
@@ -563,7 +627,7 @@ class PdfText {
 
         $style = strtoupper($style);
 
-        if (strpos($style,'U') !== false) {
+        if (strpos($style, 'U') !== false) {
             $document->setUnderline(true);
             $style = str_replace('U', '', $style);
         } else {
@@ -601,8 +665,6 @@ class PdfText {
                 throw new PdfException("Undefined font: ".$family." ".$style);
             }
         }
-
-        // Select it
         $document->setFontFamily($family);
         $document->setFontStyle($style);
         $document->setFontSizePt($size);

@@ -104,7 +104,8 @@ class PdfPage {
     public $pageBuffer;
 
     /**
-     * New PDF page, constructor
+     * New PDF page
+     * TODO: try and make it possible to do in __construct again
      *
      * @param PdfDocument $pdfDocument
      * @param string      $orientation
@@ -253,6 +254,16 @@ class PdfPage {
     }
 
     /**
+     * Get left margin
+     *
+     * @return float
+     */
+    public function getLeftMargin()
+    {
+        return $this->_lMargin;
+    }
+
+    /**
      * Set top margin
      *
      * @param $margin
@@ -260,6 +271,26 @@ class PdfPage {
     public function setTopMargin($margin)
     {
         $this->_tMargin = $margin;
+    }
+
+    /**
+     * Get cell margin
+     *
+     * @return float
+     */
+    public function getCellMargin()
+    {
+        return $this->_cMargin;
+    }
+
+    /**
+     * Get right margin
+     *
+     * @return float
+     */
+    public function getRightMargin()
+    {
+        return $this->_rMargin;
     }
 
     /**
@@ -290,9 +321,19 @@ class PdfPage {
      *
      * @return mixed
      */
-    function acceptPageBreak()
+    public function acceptPageBreak()
     {
-        return $this->_pdfDocument->getAutoPageBreak();
+        return $this->_autoPageBreak;
+    }
+
+    /**
+     * Get pagebreak trigger
+     *
+     * @return mixed
+     */
+    public function getPageBreakTrigger()
+    {
+        return $this->_pageBreakTrigger;
     }
 
     /**
@@ -300,7 +341,7 @@ class PdfPage {
      *
      * @return float
      */
-    function getHeight()
+    public function getHeight()
     {
         return $this->_h;
     }
@@ -310,7 +351,7 @@ class PdfPage {
      *
      * @return float
      */
-    function getWidth()
+    public function getWidth()
     {
         return $this->_w;
     }
@@ -319,7 +360,7 @@ class PdfPage {
      *
      * @return float
      */
-    function getX()
+    public function getX()
     {
         return $this->_x;
     }
@@ -330,7 +371,7 @@ class PdfPage {
      * @param  $x
      * @return $this
      */
-    function setX($x)
+    public function setX($x)
     {
         if ($x >= 0) {
             $this->_x = $x;
@@ -345,7 +386,7 @@ class PdfPage {
      *
      * @return float
      */
-    function getY()
+    public function getY()
     {
         return $this->_y;
     }
@@ -356,7 +397,7 @@ class PdfPage {
      * @param  $y
      * @return $this
      */
-    function setY($y)
+    public function setY($y)
     {
         $this->_x = $this->_lMargin;
         if ($y >= 0) {
@@ -373,7 +414,7 @@ class PdfPage {
      * @param $x
      * @param $y
      */
-    function setXY($x, $y)
+    public function setXY($x, $y)
     {
         $this->setY($y);
         $this->setX($x);
