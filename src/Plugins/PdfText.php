@@ -305,268 +305,290 @@ class PdfText {
      * @param string $align
      * @param bool $fill
      */
-    function multiCell($w, $h, $txt, $border=0, $align='J', $fill=false)
+    function multiCell($w, $h, $txt, $border = 0, $align = 'J', $fill = false)
     {
-        $cw = &$this->CurrentFont['cw'];
-        if($w==0)
-            $w = $this->w-$this->rMargin-$this->x;
-        $wmax = ($w-2*$this->cMargin);
-        $s = str_replace("\r",'',$txt);
-        if ($this->unifontSubset) {
-            $nb=mb_strlen($s, 'utf-8');
-            while($nb>0 && mb_substr($s,$nb-1,1,'utf-8')=="\n")	$nb--;
+        $document = $this->_pdfDocument;
+        $page     = $document->getPage();
+
+        $selectedFont = $document->getCurrentFont();
+        $currentFont  = &$document->getOutputter()->getFontOutputter()->fonts[$selectedFont];
+
+        $cw = &$currentFont['cw'];
+        if ($w == 0) {
+            $w = $page->getWidth()- $page->getRightMargin() - $page->getX();
         }
-        else {
-            $nb = strlen($s);
-            if($nb>0 && $s[$nb-1]=="\n")
+
+        $wmax = ($w - 2 * $page->getCellMargin());
+        $s    = str_replace("\r",'',$txt);
+
+        if ($document->getUnifontSubset()) {
+            $nb = mb_strlen($s, 'utf-8');
+            while ($nb >0 && mb_substr($s, $nb - 1, 1, 'utf-8') == "\n") {
                 $nb--;
-        }
-        $b = 0;
-        if($border)
-        {
-            if($border==1)
-            {
-                $border = 'LTRB';
-                $b = 'LRT';
-                $b2 = 'LR';
             }
-            else
-            {
+        } else {
+            $nb = strlen($s);
+            if ($nb > 0 && $s[$nb - 1] == "\n") {
+                $nb--;
+            }
+        }
+
+        $b = 0;
+        if ($border) {
+            if ($border == 1) {
+                $border = 'LTRB';
+                $b      = 'LRT';
+                $b2     = 'LR';
+            } else {
                 $b2 = '';
-                if(strpos($border,'L')!==false)
+                if (strpos($border, 'L') !== false) {
                     $b2 .= 'L';
-                if(strpos($border,'R')!==false)
+                }
+                if (strpos($border, 'R') !== false) {
                     $b2 .= 'R';
-                $b = (strpos($border,'T')!==false) ? $b2.'T' : $b2;
+                }
+                $b = (strpos($border, 'T') !== false) ? $b2.'T' : $b2;
             }
         }
         $sep = -1;
-        $i = 0;
-        $j = 0;
-        $l = 0;
-        $ns = 0;
-        $nl = 1;
-        while($i<$nb)
-        {
-            // Get next character
-            if ($this->unifontSubset) {
-                $c = mb_substr($s,$i,1,'UTF-8');
+        $i   = 0;
+        $j   = 0;
+        $l   = 0;
+        $ns  = 0;
+        $nl  = 1;
+
+        // Get next character
+        while ($i < $nb) {
+            if ($document->getUnifontSubset()) {
+                $c = mb_substr($s, $i, 1, 'UTF-8');
+            } else {
+                $c = $s[$i];
             }
-            else {
-                $c=$s[$i];
-            }
-            if($c=="\n")
-            {
-                // Explicit line break
-                if($this->ws>0)
-                {
-                    $this->ws = 0;
-                    $this->_out('0 Tw');
+
+            if ($c == "\n") {
+                if($this->_ws > 0) {
+                    $this->_ws = 0;
+                    $document->out('0 Tw');
                 }
-                if ($this->unifontSubset) {
-                    $this->Cell($w,$h,mb_substr($s,$j,$i-$j,'UTF-8'),$b,2,$align,$fill);
+                if ($document->getUnifontSubset()) {
+                    $this->cell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), $b, 2, $align, $fill);
+                } else {
+                    $this->cell($w, $h, substr($s, $j, $i - $j), $b, 2, $align, $fill);
                 }
-                else {
-                    $this->Cell($w,$h,substr($s,$j,$i-$j),$b,2,$align,$fill);
-                }
+
                 $i++;
-                $sep = -1;
-                $j = $i;
-                $l = 0;
-                $ns = 0;
                 $nl++;
-                if($border && $nl==2)
+                $sep = -1;
+                $j   = $i;
+                $l   = 0;
+                $ns  = 0;
+                if ($border && $nl == 2) {
                     $b = $b2;
+                }
                 continue;
             }
-            if($c==' ')
-            {
+
+            if ($c == ' ') {
                 $sep = $i;
-                $ls = $l;
+                $ls  = $l;
                 $ns++;
             }
 
-            if ($this->unifontSubset) { $l += $this->GetStringWidth($c); }
-            else { $l += $cw[$c]*$this->FontSize/1000; }
+            if ($document->getUnifontSubset()) {
+                $l += $this->getStringWidth($c);
+            } else {
+                $l += $cw[$c] * $document->getFontSize() / 1000;
+            }
 
-            if($l>$wmax)
-            {
-                // Automatic line break
-                if($sep==-1)
-                {
-                    if($i==$j)
+            // Automatic line break
+            if ($l > $wmax) {
+                if ($sep == -1) {
+                    if ($i == $j) {
                         $i++;
-                    if($this->ws>0)
-                    {
-                        $this->ws = 0;
-                        $this->_out('0 Tw');
                     }
-                    if ($this->unifontSubset) {
-                        $this->Cell($w,$h,mb_substr($s,$j,$i-$j,'UTF-8'),$b,2,$align,$fill);
+
+                    if ($this->_ws > 0) {
+                        $this->_ws = 0;
+                        $document->out('0 Tw');
                     }
-                    else {
-                        $this->Cell($w,$h,substr($s,$j,$i-$j),$b,2,$align,$fill);
+
+                    if ($document->getUnifontSubset()) {
+                        $this->cell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), $b, 2, $align, $fill);
+                    } else {
+                        $this->cell($w, $h, substr($s, $j, $i - $j), $b, 2, $align, $fill);
                     }
-                }
-                else
-                {
-                    if($align=='J')
-                    {
-                        $this->ws = ($ns>1) ? ($wmax-$ls)/($ns-1) : 0;
-                        $this->_out(sprintf('%.3F Tw',$this->ws*$this->k));
+                } else {
+                    if ($align == 'J') {
+                        $this->_ws = ($ns > 1) ? ($wmax - $ls) / ($ns - 1) : 0;
+                        $document->out(sprintf('%.3F Tw',$this->_ws * $document->getScaleFactor()));
                     }
-                    if ($this->unifontSubset) {
-                        $this->Cell($w,$h,mb_substr($s,$j,$sep-$j,'UTF-8'),$b,2,$align,$fill);
+
+                    if ($document->getUnifontSubset()) {
+                        $this->cell($w, $h, mb_substr($s, $j, $sep - $j, 'UTF-8'), $b, 2, $align, $fill);
+                    } else {
+                        $this->cell($w, $h, substr($s, $j, $sep - $j), $b, 2, $align, $fill);
                     }
-                    else {
-                        $this->Cell($w,$h,substr($s,$j,$sep-$j),$b,2,$align,$fill);
-                    }
-                    $i = $sep+1;
+                    $i = $sep + 1;
                 }
                 $sep = -1;
-                $j = $i;
-                $l = 0;
-                $ns = 0;
+                $j   = $i;
+                $l   = 0;
+                $ns  = 0;
                 $nl++;
-                if($border && $nl==2)
+                if ($border && $nl == 2) {
                     $b = $b2;
-            }
-            else
+                }
+            } else {
                 $i++;
+            }
         }
+
         // Last chunk
-        if($this->ws>0)
-        {
-            $this->ws = 0;
-            $this->_out('0 Tw');
+        if ($this->_ws > 0) {
+            $this->_ws = 0;
+            $document->out('0 Tw');
         }
-        if($border && strpos($border,'B')!==false)
+
+        if ($border && strpos($border, 'B') !== false) {
             $b .= 'B';
-        if ($this->unifontSubset) {
-            $this->Cell($w,$h,mb_substr($s,$j,$i-$j,'UTF-8'),$b,2,$align,$fill);
         }
-        else {
-            $this->Cell($w,$h,substr($s,$j,$i-$j),$b,2,$align,$fill);
+
+        if ($document->getUnifontSubset()) {
+            $this->cell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), $b, 2, $align, $fill);
+        } else {
+            $this->cell($w, $h, substr($s, $j, $i - $j), $b, 2, $align, $fill);
         }
-        $this->x = $this->lMargin;
+        $page->setX($page->getLeftMargin());
     }
 
-    function Write($h, $txt, $link='')
+    /**
+     * Output text in flowing mode
+     *
+     * @param $h
+     * @param $txt
+     * @param string $link
+     */
+    function write($h, $txt, $link = '')
     {
-        // Output text in flowing mode
-        $cw = &$this->CurrentFont['cw'];
-        $w = $this->w-$this->rMargin-$this->x;
+        $document = $this->_pdfDocument;
+        $page     = $document->getPage();
 
-        $wmax = ($w-2*$this->cMargin);
-        $s = str_replace("\r",'',$txt);
-        if ($this->unifontSubset) {
+        $selectedFont = $document->getCurrentFont();
+        $currentFont  = &$document->getOutputter()->getFontOutputter()->fonts[$selectedFont];
+
+        $cw = &$currentFont['cw'];
+        $w  = $page->getWidth() - $page->getRightMargin() - $page->getX();
+
+        $wmax = ($w - 2 * $page->getCellMargin());
+        $s    = str_replace("\r", '', $txt);
+
+        if ($document->getUnifontSubset()) {
             $nb = mb_strlen($s, 'UTF-8');
-            if($nb==1 && $s==" ") {
-                $this->x += $this->GetStringWidth($s);
+            if ($nb == 1 && $s == " ") {
+                $page->setX($page->getX() + $this->getStringWidth($s));
                 return;
             }
-        }
-        else {
+        } else {
             $nb = strlen($s);
         }
+
         $sep = -1;
-        $i = 0;
-        $j = 0;
-        $l = 0;
-        $nl = 1;
-        while($i<$nb)
-        {
-            // Get next character
-            if ($this->unifontSubset) {
-                $c = mb_substr($s,$i,1,'UTF-8');
-            }
-            else {
+        $i   = 0;
+        $j   = 0;
+        $l   = 0;
+        $nl  = 1;
+
+        // Get next character
+        while ($i < $nb) {
+            if ($document->getUnifontSubset()) {
+                $c = mb_substr($s, $i, 1, 'UTF-8');
+            } else {
                 $c = $s[$i];
             }
-            if($c=="\n")
-            {
-                // Explicit line break
-                if ($this->unifontSubset) {
-                    $this->Cell($w,$h,mb_substr($s,$j,$i-$j,'UTF-8'),0,2,'',0,$link);
+
+            // Explicit line break
+            if ($c == "\n") {
+                if ($document->getUnifontSubset()) {
+                    $this->cell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), 0, 2, '' , 0, $link);
+                } else {
+                    $this->cell($w, $h, substr($s, $j, $i - $j), 0, 2, '', 0, $link);
                 }
-                else {
-                    $this->Cell($w,$h,substr($s,$j,$i-$j),0,2,'',0,$link);
-                }
+
                 $i++;
                 $sep = -1;
-                $j = $i;
-                $l = 0;
-                if($nl==1)
-                {
-                    $this->x = $this->lMargin;
-                    $w = $this->w-$this->rMargin-$this->x;
-                    $wmax = ($w-2*$this->cMargin);
+                $j   = $i;
+                $l   = 0;
+
+                if ($nl == 1) {
+                    $page->setX($page->getLeftMargin());
+                    $w    = $page->getWidth() - $page->getRightMargin() - $page->getX();
+                    $wmax = ($w - 2 * $page->getCellMargin());
                 }
                 $nl++;
                 continue;
             }
-            if($c==' ')
+            if ($c == ' ') {
                 $sep = $i;
+            }
 
-            if ($this->unifontSubset) { $l += $this->GetStringWidth($c); }
-            else { $l += $cw[$c]*$this->FontSize/1000; }
+            if ($document->getUnifontSubset()) {
+                $l += $this->getStringWidth($c);
+            } else {
+                $l += $cw[$c] * $document->getFontSize() / 1000;
+            }
 
-            if($l>$wmax)
-            {
-                // Automatic line break
-                if($sep==-1)
-                {
-                    if($this->x>$this->lMargin)
-                    {
+            // Automatic line break
+            if ($l > $wmax) {
+                if ($sep == -1) {
+                    if ($page->getX() > $page->getLeftMargin()) {
                         // Move to next line
-                        $this->x = $this->lMargin;
-                        $this->y += $h;
-                        $w = $this->w-$this->rMargin-$this->x;
-                        $wmax = ($w-2*$this->cMargin);
+                        $page->setX($page->getLeftMargin());
+                        $page->setY($page->getY() + $h);
+                        $w    = $page->getWidth()- $page->getRightMargin() - $page->getX();
+                        $wmax = ($w - 2 * $page->getCellMargin());
                         $i++;
                         $nl++;
                         continue;
                     }
-                    if($i==$j)
+
+                    if ($i == $j) {
                         $i++;
-                    if ($this->unifontSubset) {
-                        $this->Cell($w,$h,mb_substr($s,$j,$i-$j,'UTF-8'),0,2,'',0,$link);
                     }
-                    else {
-                        $this->Cell($w,$h,substr($s,$j,$i-$j),0,2,'',0,$link);
+
+                    if ($document->getUnifontSubset()) {
+                        $this->cell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), 0, 2, '', 0, $link);
+                    } else {
+                        $this->cell($w, $h, substr($s, $j, $i - $j), 0, 2, '', 0, $link);
                     }
-                }
-                else
-                {
-                    if ($this->unifontSubset) {
-                        $this->Cell($w,$h,mb_substr($s,$j,$sep-$j,'UTF-8'),0,2,'',0,$link);
-                    }
-                    else {
-                        $this->Cell($w,$h,substr($s,$j,$sep-$j),0,2,'',0,$link);
+                } else {
+                    if ($document->getUnifontSubset()) {
+                        $this->cell($w, $h, mb_substr($s, $j, $sep - $j, 'UTF-8'), 0, 2, '', 0, $link);
+                    } else {
+                        $this->cell($w, $h, substr($s, $j, $sep - $j), 0, 2, '', 0, $link);
                     }
                     $i = $sep+1;
                 }
+
                 $sep = -1;
-                $j = $i;
-                $l = 0;
-                if($nl==1)
-                {
-                    $this->x = $this->lMargin;
-                    $w = $this->w-$this->rMargin-$this->x;
-                    $wmax = ($w-2*$this->cMargin);
+                $j   = $i;
+                $l   = 0;
+
+                if($nl == 1) {
+                    $page->setX($page->getLeftMargin());
+                    $w    = $page->getWidth() - $page->getRightMargin() - $page->getX();
+                    $wmax = ($w - 2 * $page->getCellMargin());
                 }
                 $nl++;
-            }
-            else
+            } else
                 $i++;
         }
+
         // Last chunk
-        if($i!=$j) {
-            if ($this->unifontSubset) {
-                $this->Cell($l,$h,mb_substr($s,$j,$i-$j,'UTF-8'),0,0,'',0,$link);
-            }
-            else {
-                $this->Cell($l,$h,substr($s,$j),0,0,'',0,$link);
+        if ($i != $j) {
+            if ($document->getUnifontSubset()) {
+                $this->cell($l, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), 0, 0, '', 0, $link);
+            } else {
+                $this->cell($l, $h, substr($s, $j), 0, 0, '', 0, $link);
             }
         }
     }
@@ -576,14 +598,16 @@ class PdfText {
      *
      * @param null $h
      */
-    function ln($h=null)
+    function ln($h = null)
     {
-        $this->x = $this->lMargin;
+        $page = $this->_pdfDocument->getPage();
+
+        $page->setX($page->getLeftMargin());
 
         if ($h === null) {
-            $this->y += $this->lasth;
+            $page->setY($page->getY() + $this->_lastH);
         } else {
-            $this->y += $h;
+            $page->setY($page->getY() + $h);
         }
     }
 
@@ -597,12 +621,20 @@ class PdfText {
      */
     protected function _dounderline($x, $y, $txt)
     {
-        $fontOutput = $this->_pdfDocument->getOutputter()->getFontOutputter();
+        $document     = $this->_pdfDocument;
+        $page         = $document->getPage();
+        $selectedFont = $document->getCurrentFont();
 
-        $up = $fontOutput->fonts[$this->_pdfDocument->getCurrentFont()]['up'];
-        $ut = $fontOutput->fonts[$this->_pdfDocument->getCurrentFont()]['ut'];
+        $up = $document->getOutputter()->getFontOutputter()->fonts[$selectedFont]['up'];
+        $ut = $document->getOutputter()->getFontOutputter()->fonts[$selectedFont]['ut'];
+        $k  = $document->getScaleFactor();
         $w  = $this->getStringWidth($txt) + $this->_ws * substr_count($txt,' ');
-        return sprintf('%.2F %.2F %.2F %.2F re f', $x*$this->k,($this->h-($y-$up/1000*$this->FontSize))*$this->k,$w*$this->k,-$ut/1000*$this->FontSizePt);
+
+        return sprintf('%.2F %.2F %.2F %.2F re f',
+            $x * $k,
+            ($page->getHeight() - ($y - $up / 1000 * $document->getFontSize())) * $k,
+            $w * $k,
+            -$ut / 1000 * $document->getFontSizePt());
     }
 
     /**
