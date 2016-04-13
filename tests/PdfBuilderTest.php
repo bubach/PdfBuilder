@@ -61,4 +61,16 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase {
         $this->assertEquals('', $pdfBuilder->output("test5.pdf", "F"));
     }
 
+    /**
+     * Testing to output a PNG image!
+     */
+    public function testPngOutput()
+    {
+        $pdfBuilder = new PdfDocument();
+        $pdfBuilder->addPage();
+        //addImage($file, $x = null, $y = null, $w = 0, $h = 0, $type = '', $link = '')
+        $pdfBuilder->addImage("tests/burn.png");
+        $this->assertEquals('', $pdfBuilder->output("test6.pdf", "F"));
+    }
+
 }

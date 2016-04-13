@@ -104,10 +104,10 @@ class PdfDocument {
         'outputFooter' => 'PdfBuilder\Core\PdfFooter',
         'addImage'     => 'PdfBuilder\Plugins\PdfImage',
         'setTextColor' => 'PdfBuilder\Plugins\PdfText',
-        'text'         => 'PdfBuilder\Plugins\PdfText',
-        'cell'         => 'PdfBuilder\Plugins\PdfText',
-        'setFont'      => 'PdfBuilder\Plugins\PdfText',
         'addText'      => 'PdfBuilder\Plugins\PdfText',
+        'addCell'      => 'PdfBuilder\Plugins\PdfText',
+        'addMultiCell' => 'PdfBuilder\Plugins\PdfText',
+        'setFont'      => 'PdfBuilder\Plugins\PdfText',
         'addCircle'    => 'PdfBuilder\Plugins\PdfShape',
         'addRectangle' => 'PdfBuilder\Plugins\PdfShape',
     );

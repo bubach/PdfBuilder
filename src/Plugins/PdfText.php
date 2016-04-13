@@ -52,11 +52,12 @@ class PdfText {
     /**
      * Print out text to the PDF
      *
-     * @param $x
-     * @param $y
-     * @param $txt
+     * @param  $x
+     * @param  $y
+     * @param  $txt
+     * @return PdfDocument
      */
-    public function text($x, $y, $txt)
+    public function addText($x, $y, $txt)
     {
         $document  = $this->_pdfDocument;
         $pdfOutput = $document->getOutputter();
@@ -84,15 +85,18 @@ class PdfText {
             $s = 'q '.$document->getTextColor().' '.$s.' Q';
         }
         $pdfOutput->out($s);
+
+        return $document;
     }
 
     /**
      * Set color for text,
      * overrides magic setter in document
      *
-     * @param $r
-     * @param null $g
-     * @param null $b
+     * @param  $r
+     * @param  null $g
+     * @param  null $b
+     * @return PdfDocument
      */
     public function setTextColor($r, $g = null, $b = null)
     {
@@ -102,6 +106,8 @@ class PdfText {
             $this->_pdfDocument->__set('TextColor', sprintf('%.3F %.3F %.3F rg', $r / 255, $g / 255, $b / 255));
         }
         $this->_pdfDocument->setColorFlag(($this->_pdfDocument->getFillColor() != $this->_pdfDocument->getTextColor()));
+
+        return $this->_pdfDocument;
     }
 
     /**
@@ -149,16 +155,17 @@ class PdfText {
     /**
      * Output a cell
      *
-     * @param $w
-     * @param int $h
-     * @param string $txt
-     * @param int $border
-     * @param int $ln
-     * @param string $align
-     * @param bool $fill
-     * @param string $link
+     * @param  $w
+     * @param  int $h
+     * @param  string $txt
+     * @param  int $border
+     * @param  int $ln
+     * @param  string $align
+     * @param  bool $fill
+     * @param  string $link
+     * @return PdfDocument
      */
-    function cell($w, $h = 0, $txt = '', $border = 0, $ln = 0, $align = '', $fill = false, $link = '')
+    function addCell($w, $h = 0, $txt = '', $border = 0, $ln = 0, $align = '', $fill = false, $link = '')
     {
         $document = $this->_pdfDocument;
         $output   = $document->getOutputter();
@@ -168,7 +175,6 @@ class PdfText {
         $selectedFont = $document->getCurrentFont();
         $currentFont  = &$output->getFontOutputter()->fonts[$selectedFont];
 
-        // Automatic page break
         if ($page->getY() + $h > $page->getPageBreakTrigger() && !$document->getInHeaderOrFooter() && $page->acceptPageBreak()) {
             $x  = $page->getX();
             $ws = $this->_ws;
@@ -293,19 +299,22 @@ class PdfText {
         } else {
             $page->setX($page->getX() + $w);
         }
+
+        return $document;
     }
 
     /**
      * Output text with automatic or explicit line breaks
      *
-     * @param $w
-     * @param $h
-     * @param $txt
-     * @param int $border
-     * @param string $align
-     * @param bool $fill
+     * @param  $w
+     * @param  $h
+     * @param  $txt
+     * @param  int $border
+     * @param  string $align
+     * @param  bool $fill
+     * @return PdfDocument
      */
-    function multiCell($w, $h, $txt, $border = 0, $align = 'J', $fill = false)
+    function addMultiCell($w, $h, $txt, $border = 0, $align = 'J', $fill = false)
     {
         $document = $this->_pdfDocument;
         $page     = $document->getPage();
@@ -371,9 +380,9 @@ class PdfText {
                     $document->out('0 Tw');
                 }
                 if ($document->getUnifontSubset()) {
-                    $this->cell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), $b, 2, $align, $fill);
+                    $this->addCell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), $b, 2, $align, $fill);
                 } else {
-                    $this->cell($w, $h, substr($s, $j, $i - $j), $b, 2, $align, $fill);
+                    $this->addCell($w, $h, substr($s, $j, $i - $j), $b, 2, $align, $fill);
                 }
 
                 $i++;
@@ -413,9 +422,9 @@ class PdfText {
                     }
 
                     if ($document->getUnifontSubset()) {
-                        $this->cell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), $b, 2, $align, $fill);
+                        $this->addCell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), $b, 2, $align, $fill);
                     } else {
-                        $this->cell($w, $h, substr($s, $j, $i - $j), $b, 2, $align, $fill);
+                        $this->addCell($w, $h, substr($s, $j, $i - $j), $b, 2, $align, $fill);
                     }
                 } else {
                     if ($align == 'J') {
@@ -424,9 +433,9 @@ class PdfText {
                     }
 
                     if ($document->getUnifontSubset()) {
-                        $this->cell($w, $h, mb_substr($s, $j, $sep - $j, 'UTF-8'), $b, 2, $align, $fill);
+                        $this->addCell($w, $h, mb_substr($s, $j, $sep - $j, 'UTF-8'), $b, 2, $align, $fill);
                     } else {
-                        $this->cell($w, $h, substr($s, $j, $sep - $j), $b, 2, $align, $fill);
+                        $this->addCell($w, $h, substr($s, $j, $sep - $j), $b, 2, $align, $fill);
                     }
                     $i = $sep + 1;
                 }
@@ -454,19 +463,22 @@ class PdfText {
         }
 
         if ($document->getUnifontSubset()) {
-            $this->cell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), $b, 2, $align, $fill);
+            $this->addCell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), $b, 2, $align, $fill);
         } else {
-            $this->cell($w, $h, substr($s, $j, $i - $j), $b, 2, $align, $fill);
+            $this->addCell($w, $h, substr($s, $j, $i - $j), $b, 2, $align, $fill);
         }
         $page->setX($page->getLeftMargin());
+
+        return $document;
     }
 
     /**
      * Output text in flowing mode
      *
-     * @param $h
-     * @param $txt
-     * @param string $link
+     * @param  $h
+     * @param  $txt
+     * @param  string $link
+     * @return PdfDocument
      */
     function write($h, $txt, $link = '')
     {
@@ -509,9 +521,9 @@ class PdfText {
             // Explicit line break
             if ($c == "\n") {
                 if ($document->getUnifontSubset()) {
-                    $this->cell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), 0, 2, '' , 0, $link);
+                    $this->addCell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), 0, 2, '' , 0, $link);
                 } else {
-                    $this->cell($w, $h, substr($s, $j, $i - $j), 0, 2, '', 0, $link);
+                    $this->addCell($w, $h, substr($s, $j, $i - $j), 0, 2, '', 0, $link);
                 }
 
                 $i++;
@@ -556,15 +568,15 @@ class PdfText {
                     }
 
                     if ($document->getUnifontSubset()) {
-                        $this->cell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), 0, 2, '', 0, $link);
+                        $this->addCell($w, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), 0, 2, '', 0, $link);
                     } else {
-                        $this->cell($w, $h, substr($s, $j, $i - $j), 0, 2, '', 0, $link);
+                        $this->addCell($w, $h, substr($s, $j, $i - $j), 0, 2, '', 0, $link);
                     }
                 } else {
                     if ($document->getUnifontSubset()) {
-                        $this->cell($w, $h, mb_substr($s, $j, $sep - $j, 'UTF-8'), 0, 2, '', 0, $link);
+                        $this->addCell($w, $h, mb_substr($s, $j, $sep - $j, 'UTF-8'), 0, 2, '', 0, $link);
                     } else {
-                        $this->cell($w, $h, substr($s, $j, $sep - $j), 0, 2, '', 0, $link);
+                        $this->addCell($w, $h, substr($s, $j, $sep - $j), 0, 2, '', 0, $link);
                     }
                     $i = $sep+1;
                 }
@@ -586,19 +598,22 @@ class PdfText {
         // Last chunk
         if ($i != $j) {
             if ($document->getUnifontSubset()) {
-                $this->cell($l, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), 0, 0, '', 0, $link);
+                $this->addCell($l, $h, mb_substr($s, $j, $i - $j, 'UTF-8'), 0, 0, '', 0, $link);
             } else {
-                $this->cell($l, $h, substr($s, $j), 0, 0, '', 0, $link);
+                $this->addCell($l, $h, substr($s, $j), 0, 0, '', 0, $link);
             }
         }
+
+        return $document;
     }
 
     /**
      * Line feed; default value is last cell height
      *
-     * @param null $h
+     * @param  null $h
+     * @return PdfDocument
      */
-    function ln($h = null)
+    public function ln($h = null)
     {
         $page = $this->_pdfDocument->getPage();
 
@@ -609,6 +624,8 @@ class PdfText {
         } else {
             $page->setY($page->getY() + $h);
         }
+
+        return $this->_pdfDocument;
     }
 
     /**
@@ -643,7 +660,7 @@ class PdfText {
      * @param  $family
      * @param  string $style
      * @param  int $size
-     * @return \PdfBuilder\PdfDocument
+     * @return PdfDocument
      * @throws PdfException
      */
     public function setFont($family, $style = '', $size = 0)
@@ -719,7 +736,8 @@ class PdfText {
     /**
      * Set font size in points
      *
-     * @param $size
+     * @param  $size
+     * @return PdfDocument
      */
     public function setFontSize($size)
     {
@@ -736,6 +754,8 @@ class PdfText {
         if ($document->getCurPageNo() > 0) {
             $document->out(sprintf('BT /F%d %.2F Tf ET', $fontOutput->fonts[$currentFont]['i'], $document->getFontSizePt()));
         }
+
+        return $document;
     }
 
 }
