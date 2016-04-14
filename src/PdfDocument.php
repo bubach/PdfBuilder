@@ -512,9 +512,12 @@ class PdfDocument {
         if ($this->_curState < self::STATE_END_DOC) {
             $this->close();
         }
-        if (empty($name)) {
+
+        if (empty($destination) && empty($name)) {
             $name        = 'doc.pdf';
             $destination = 'I';
+        } elseif (empty($destination)) {
+            $destination = 'F';
         }
 
         switch (strtoupper($destination)) {
