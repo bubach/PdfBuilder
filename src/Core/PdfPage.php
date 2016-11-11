@@ -4,7 +4,8 @@ namespace PdfBuilder\Core;
 use PdfBuilder\PdfDocument;
 use PdfBuilder\Exception\PdfException;
 
-class PdfPage {
+class PdfPage
+{
 
     /**
      * @var PdfDocument
@@ -104,15 +105,18 @@ class PdfPage {
     public $pageBuffer;
 
     /**
-     * New PDF page
-     * TODO: try and make it possible to do in __construct again
+     * New PDF page constructor.
      *
-     * @param PdfDocument $pdfDocument
-     * @param string      $orientation
-     * @param string      $size
+     * Any function called in here that outputs anything
+     * to the page buffer need to do so directly, and not through
+     * $pdfDocument->out() that has page-count != current page.
+     *
+     * @param  PdfDocument $pdfDocument
+     * @param  string      $orientation
+     * @param  string      $size
      * @throws PdfException
      */
-    public function initPage(PdfDocument $pdfDocument, $orientation, $size)
+    public function __construct(PdfDocument $pdfDocument, $orientation, $size)
     {
         $this->_pdfDocument = $pdfDocument;
         $this->pageBuffer   = "2 J\n";
@@ -135,7 +139,7 @@ class PdfPage {
         $this->_wPt = $this->_w * $pdfDocument->getScaleFactor();
         $this->_hPt = $this->_h * $pdfDocument->getScaleFactor();
 
-        if ($pdfDocument->getCurPageNo() > 1) {
+        if ($pdfDocument->getPageCount() > 0) {
             $defPageSize = $pdfDocument->getDefPageSize();
             if ($orientation != $pdfDocument->getDefOrientation() || $size[0] != $defPageSize[0] || $size[1] != $defPageSize[1]) {
                 $pdfDocument->addPageSize($this->_wPt, $this->_hPt);
@@ -213,14 +217,15 @@ class PdfPage {
     }
 
     /**
-     * Set line width
+     * Set line width, outputting directly to the page buffer
+     * since it's called when page-count might be in flux.
      *
      * @param $width
      */
     function setLineWidth($width)
     {
-        $this->_lineWidth = $width;
-        $this->getDocument()->out(sprintf('%.2F w', $width * $this->getDocument()->getScaleFactor()));
+        $this->_lineWidth  = $width;
+        $this->pageBuffer .= sprintf("%.2F w\n", $width * $this->getDocument()->getScaleFactor());
     }
 
     /**
@@ -497,5 +502,4 @@ class PdfPage {
             return false;
         }
     }
-
 }

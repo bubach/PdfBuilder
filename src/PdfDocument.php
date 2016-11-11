@@ -7,7 +7,8 @@ use PdfBuilder\Exception\PdfException;
 
 define('PDFBUILDER_VERSION','1.00');
 
-class PdfDocument {
+class PdfDocument
+{
 
     /**
      * @var int Current page number
@@ -337,14 +338,6 @@ class PdfDocument {
     }
 
     /**
-     * @return int Current page number
-     */
-    public function getCurPageNo()
-    {
-        return $this->_curPage;
-    }
-
-    /**
      * Get document zoom mode
      *
      * @return null
@@ -370,6 +363,42 @@ class PdfDocument {
     public function getLayoutMode()
     {
         return $this->_layoutMode;
+    }
+
+    /**
+     * @return int Current page number
+     */
+    public function getCurPageNo()
+    {
+        return $this->_curPage;
+    }
+
+    /**
+     * Get the amount of pages in the document
+     *
+     * @return int
+     */
+    public function getPageCount()
+    {
+        return count($this->_pages);
+    }
+
+    /**
+     * Get a PDF page instance, numbered or current.
+     *
+     * @param  null $number
+     * @return PdfPage|false
+     */
+    public function getPage($number = null)
+    {
+        $number = (is_null($number) || ($number - 1 < 0)) ? ($this->getCurPageNo() - 1) : ($number - 1);
+
+        if (isset($this->_pages[$number])) {
+            $this->_curPage = $number + 1;
+            return $this->_pages[$number];
+        }
+
+        return false;
     }
 
     /**
@@ -433,22 +462,13 @@ class PdfDocument {
         if ($this->_curState == self::STATE_END_DOC) {
             return;
         }
-        if ($this->_curPage == 0) {
+        if ($this->getPageCount() < 1) {
             $this->addPage();
         }
 
         $this->outputFooter();
         $this->setState(self::STATE_END_PAGE);
         $this->_pdfOutput->endDoc();
-    }
-
-    /**
-     * Get a PDF page instance
-     */
-    public function getPage($number = null)
-    {
-        $number = empty($number) ? $this->getCurPageNo() : $number;
-        return isset($this->_pages[$number - 1]) ? $this->_pages[$number - 1] : $this->addPage();
     }
 
     /**
@@ -462,7 +482,7 @@ class PdfDocument {
     {
         $this->_curState = self::STATE_END_PAGE;
 
-        if ($this->_curPage > 0) {
+        if ($this->getPageCount() > 0) {
             $this->outputFooter();
             $this->setState(self::STATE_END_PAGE);
 
@@ -473,16 +493,12 @@ class PdfDocument {
             $size        = empty($size) ? $this->_defSizeFormat : $size;
         }
 
-        $this->_curPage++;
         $this->setState(self::STATE_NEW_PAGE);
-
-        $page = new PdfPage();
-        $this->_pages[] = $page;
-        $page->initPage($this, $orientation, $size);
+        $this->_curPage++;
+        $this->_pages[] = new PdfPage($this, $orientation, $size);
 
         $this->outputHeader();
-
-        return $page;
+        return $this->getPage();
     }
 
     /**
@@ -652,7 +668,7 @@ class PdfDocument {
                 $this->plugins[$method] = $class;
             }
             return call_user_func_array(array($class, $method), $parameters);
-        } else if ($this->getCurPageNo() > 0 && method_exists($this->getPage(), $method)) {
+        } else if ($this->getPageCount() > 0 && method_exists($this->getPage(), $method)) {
             return call_user_func_array(array($this->getPage(), $method), $parameters);
         } else if (substr($method, 0, 3) == "set") {
             return $this->__set(substr($method, 3), $parameters);
@@ -662,5 +678,4 @@ class PdfDocument {
             return false;
         }
     }
-
 }

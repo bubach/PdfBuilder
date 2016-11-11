@@ -3,7 +3,8 @@ namespace PdfBuilder\Core;
 
 use PdfBuilder\PdfDocument;
 
-class PdfHeader {
+class PdfHeader
+{
 
     /**
      * @var callable
@@ -69,5 +70,4 @@ class PdfHeader {
 
         return $this->_pdfDocument;
     }
-
 } 

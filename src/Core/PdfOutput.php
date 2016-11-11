@@ -6,7 +6,8 @@ use PdfBuilder\Core\PdfFonts;
 use PdfBuilder\Core\PdfImages;
 use PdfBuilder\Exception\PdfException;
 
-class PdfOutput {
+class PdfOutput
+{
 
     /**
      * @var PdfDocument
@@ -129,9 +130,9 @@ class PdfOutput {
      */
     public function out($s)
     {
-        $pdfDocument = $this->_pdfDocument;
+        $pdfDocument = $this->getDocument();
 
-        if ($pdfDocument->getState() == $pdfDocument::STATE_NEW_PAGE) {
+        if ($pdfDocument->getState() == $pdfDocument::STATE_NEW_PAGE && $pdfDocument->getPageCount() > 0) {
             $pdfDocument->getPage()->pageBuffer .= $s."\n";
         } else {
             $this->outBuffer .= $s."\n";
@@ -210,7 +211,7 @@ class PdfOutput {
     protected function _putPages()
     {
         $document = $this->_pdfDocument;
-        $nb       = $document->getCurPageNo();
+        $nb       = $document->getPageCount();
         $aliasNb  = $document->getAliasNbPages();
 
         if (!empty($aliasNb)) {
@@ -274,7 +275,7 @@ class PdfOutput {
 
             $this->out('/Resources 2 0 R');
 
-            if (!empty($document->getPage($n - 1)->pageLinks)) {
+            if (!empty($document->getPage($n)->pageLinks)) {
                 $annots = '/Annots [';
 
                 foreach ($document->getPage($n)->pageLinks as $pl) {
@@ -527,5 +528,4 @@ class PdfOutput {
         $s = str_replace("\r",'\\r',$s);
         return $s;
     }
-
 } 
