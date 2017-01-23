@@ -78,4 +78,28 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase
         $this->assertEquals("", $pdfBuilder->output("tests/test6.pdf", "F"));
         $this->assertEquals(253474, strlen($pdfBuilder));
     }
+
+    /**
+     * Testing to output a line!
+     */
+    public function testLineOutput()
+    {
+        $pdfBuilder = new PdfDocument();
+        $pdfBuilder->addPage();
+        $pdfBuilder->line(10, 10, 50, 50);
+        $this->assertEquals("", $pdfBuilder->output("tests/test7.pdf", "F"));
+        $this->assertEquals(735, strlen($pdfBuilder));
+    }
+
+    /**
+     * Testing to output a rectangle!
+     */
+    public function testRectOutput()
+    {
+        $pdfBuilder = new PdfDocument();
+        $pdfBuilder->addPage();
+        $pdfBuilder->rect(10, 10, 30, 30, 'F');
+        $this->assertEquals("", $pdfBuilder->output("tests/test8.pdf", "F"));
+        $this->assertEquals(728, strlen($pdfBuilder));
+    }
 }

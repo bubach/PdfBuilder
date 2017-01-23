@@ -4,7 +4,8 @@ namespace PdfBuilder\Plugins;
 use PdfBuilder\PdfDocument;
 use PdfBuilder\Exception\PdfException;
 
-class PdfImage {
+class PdfImage
+{
 
     /**
      * @var PdfDocument
@@ -105,5 +106,4 @@ class PdfImage {
         }
         return $document;
     }
-
 }

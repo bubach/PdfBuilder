@@ -4,7 +4,8 @@ namespace PdfBuilder\Plugins;
 use PdfBuilder\PdfDocument;
 use PdfBuilder\Exception\PdfException;
 
-class PdfText {
+class PdfText
+{
 
     /**
      * @var PdfDocument
@@ -757,5 +758,4 @@ class PdfText {
 
         return $document;
     }
-
 }

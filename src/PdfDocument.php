@@ -99,18 +99,22 @@ class PdfDocument
      * @var array
      */
     public $plugins = array(
-        'addHeader'    => 'PdfBuilder\Core\PdfHeader',
-        'outputHeader' => 'PdfBuilder\Core\PdfHeader',
-        'addFooter'    => 'PdfBuilder\Core\PdfFooter',
-        'outputFooter' => 'PdfBuilder\Core\PdfFooter',
-        'addImage'     => 'PdfBuilder\Plugins\PdfImage',
-        'setTextColor' => 'PdfBuilder\Plugins\PdfText',
-        'addText'      => 'PdfBuilder\Plugins\PdfText',
-        'addCell'      => 'PdfBuilder\Plugins\PdfText',
-        'addMultiCell' => 'PdfBuilder\Plugins\PdfText',
-        'setFont'      => 'PdfBuilder\Plugins\PdfText',
-        'addCircle'    => 'PdfBuilder\Plugins\PdfShape',
-        'addRectangle' => 'PdfBuilder\Plugins\PdfShape',
+        'addHeader'      => 'PdfBuilder\Core\PdfHeader',
+        'outputHeader'   => 'PdfBuilder\Core\PdfHeader',
+        'addFooter'      => 'PdfBuilder\Core\PdfFooter',
+        'outputFooter'   => 'PdfBuilder\Core\PdfFooter',
+        'addImage'       => 'PdfBuilder\Plugins\PdfImage',
+        'setTextColor'   => 'PdfBuilder\Plugins\PdfText',
+        'getStringWidth' => 'PdfBuilder\Plugins\PdfText',
+        'addText'        => 'PdfBuilder\Plugins\PdfText',
+        'addCell'        => 'PdfBuilder\Plugins\PdfText',
+        'addMultiCell'   => 'PdfBuilder\Plugins\PdfText',
+        'setFont'        => 'PdfBuilder\Plugins\PdfText',
+        'setDrawColor'   => 'PdfBuilder\Plugins\PdfShape',
+        'setFillColor'   => 'PdfBuilder\Plugins\PdfShape',
+        'setLineWidth'   => 'PdfBuilder\Plugins\PdfShape',
+        'line'           => 'PdfBuilder\Plugins\PdfShape',
+        'rect'           => 'PdfBuilder\Plugins\PdfShape',
     );
 
     /**
