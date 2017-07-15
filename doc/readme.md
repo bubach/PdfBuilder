@@ -1,97 +1,97 @@
-# FPDF 1.81 Reference Manual
+# PdfBuilder Reference Manual
 
 [__construct](__construct.md) - constructor
 
-[AcceptPageBreak](acceptpagebreak.md) - accept or not automatic page break
+[acceptPageBreak](acceptPageBreak.md) - accept or not automatic page break
 
-[AddFont](addfont.md) - add a new font
+[addFont](addFont.md) - add a new font
 
-[AddLink](addlink.md) - create an internal link
+[addLink](addLink.md) - create an internal link
 
-[AddPage](addpage.md) - add a new page
+[addPage](addPage.md) - add a new page
 
-[AliasNbPages](aliasnbpages.md) - define an alias for number of pages
+[aliasNbPages](aliasNbPages.md) - define an alias for number of pages
 
-[Cell](cell.md) - print a cell
+[cell](cell.md) - print a cell
 
-[Close](close.md) - terminate the document
+[close](close.md) - terminate the document
 
-[Error](error.md) - fatal error
+[error](error.md) - fatal error
 
-[Footer](footer.md) - page footer
+[footer](footer.md) - page footer
 
-[GetPageHeight](getpageheight.md) - get current page height
+[getPageHeight](getPageHeight.md) - get current page height
 
-[GetPageWidth](getpagewidth.md) - get current page width
+[getPageWidth](getPageWidth.md) - get current page width
 
-[GetStringWidth](getstringwidth.md) - compute string length
+[getStringWidth](getStringWidth.md) - compute string length
 
-[GetX](getx.md) - get current x position
+[getX](getX.md) - get current x position
 
-[GetY](gety.md) - get current y position
+[getY](getY.md) - get current y position
 
-[Header](header.md) - page header
+[header](header.md) - page header
 
-[Image](image.md) - output an image
+[image](image.md) - output an image
 
-[Line](line.md) - draw a line
+[line](line.md) - draw a line
 
-[Link](link.md) - put a link
+[link](link.md) - put a link
 
-[Ln](ln.md) - line break
+[ln](ln.md) - line break
 
-[MultiCell](multicell.md) - print text with line breaks
+[multiCell](multiCell.md) - print text with line breaks
 
-[Output](output.md) - save or send the document
+[output](output.md) - save or send the document
 
-[PageNo](pageno.md) - page number
+[pageNo](pageNo.md) - page number
 
-[Rect](rect.md) - draw a rectangle
+[rect](rect.md) - draw a rectangle
 
-[SetAuthor](setauthor.md) - set the document author
+[setAuthor](setAuthor.md) - set the document author
 
-[SetAutoPageBreak](setautopagebreak.md) - set the automatic page breaking mode
+[setAutoPageBreak](setAutoPageBreak.md) - set the automatic page breaking mode
 
-[SetCompression](setcompression.md) - turn compression on or off
+[setCompression](setCompression.md) - turn compression on or off
 
-[SetCreator](setcreator.md) - set document creator
+[setCreator](setCreator.md) - set document creator
 
-[SetDisplayMode](setdisplaymode.md) - set display mode
+[setDisplayMode](setDisplayMode.md) - set display mode
 
-[SetDrawColor](setdrawcolor.md) - set drawing color
+[setDrawColor](setDrawColor.md) - set drawing color
 
-[SetFillColor](setfillcolor.md) - set filling color
+[setFillColor](setFillColor.md) - set filling color
 
-[SetFont](setfont.md) - set font
+[setFont](setFont.md) - set font
 
-[SetFontSize](setfontsize.md) - set font size
+[setFontSize](setFontSize.md) - set font size
 
-[SetKeywords](setkeywords.md) - associate keywords with document
+[setKeywords](setKeywords.md) - associate keywords with document
 
-[SetLeftMargin](setleftmargin.md) - set left margin
+[setLeftMargin](setLeftMargin.md) - set left margin
 
-[SetLineWidth](setlinewidth.md) - set line width
+[setLineWidth](setLineWidth.md) - set line width
 
-[SetLink](setlink.md) - set internal link destination
+[setLink](setLink.md) - set internal link destination
 
-[SetMargins](setmargins.md) - set margins
+[setMargins](setMargins.md) - set margins
 
-[SetRightMargin](setrightmargin.md) - set right margin
+[setRightMargin](setRightMargin.md) - set right margin
 
-[SetSubject](setsubject.md) - set document subject
+[setSubject](setSubject.md) - set document subject
 
-[SetTextColor](settextcolor.md) - set text color
+[setTextColor](setTextColor.md) - set text color
 
-[SetTitle](settitle.md) - set document title
+[setTitle](setTitle.md) - set document title
 
-[SetTopMargin](settopmargin.md) - set top margin
+[setTopMargin](setTopMargin.md) - set top margin
 
-[SetX](setx.md) - set current x position
+[setX](setX.md) - set current x position
 
-[SetXY](setxy.md) - set current x and y positions
+[setXY](setXY.md) - set current x and y positions
 
-[SetY](sety.md) - set current y position and optionally reset x
+[setY](setY.md) - set current y position and optionally reset x
 
-[Text](text.md) - print a string
+[text](text.md) - print a string
 
-[Write](write.md) - print flowing text
+[write](write.md) - print flowing text
