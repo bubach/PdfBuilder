@@ -50,9 +50,9 @@ Default value is `A4`.
 Example with a custom 100x150 mm page size:
 
 ```
-$pdf = new FPDF('P','mm',array(100,150));
+$pdf = new PdfBuilder('P', 'mm', array(100, 150));
 ```
 
 * * *
 
-[Index](readme.md)</div>
+[Index](README.md)</div>
