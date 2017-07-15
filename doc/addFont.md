@@ -34,19 +34,19 @@ By default, the name is built from the family and style, in lower case with no s
 
 
 ```
-$pdf->AddFont('Comic','I');
+$pdf->addFont('Comic', 'I');
 ```
 
 is equivalent to:
 
 ```
-$pdf->AddFont('Comic','I','comici.php');
+$pdf->addFont('Comic', 'I', 'comici.php');
 ```
 
 ## See also
 
-[SetFont](setfont.md)
+[setFont](setFont.md)
 
 * * *
 
-[Index](readme.md)
+[Index](README.md)
