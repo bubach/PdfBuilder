@@ -1,6 +1,6 @@
-# Cell
+# addCell
 
-`Cell(**float** w [, **float** h [, **string** txt [, **mixed** border [, **int** ln [, **string** align [, **boolean** fill [, **mixed** link]]]]]]])`
+`addCell(float $w [,float $h [,string $txt [,mixed $border [,int $ln [,string $align [,boolean $fill [,mixed $link]]]]]]])`
 
 ## Description
 
@@ -9,23 +9,13 @@ If automatic page breaking is enabled and the cell goes beyond the limit, a page
 
 ## Parameters
 
-<dl class="param">
+* `w` Cell width. If `0`, the cell extends up to the right margin.
 
-<dt>`w`</dt>
+* `h` Cell height. Default value: `0`.
 
-<dd>Cell width. If `0`, the cell extends up to the right margin.</dd>
+* `txt` String to print. Default value: empty string.
 
-<dt>`h`</dt>
-
-<dd>Cell height. Default value: `0`.</dd>
-
-<dt>`txt`</dt>
-
-<dd>String to print. Default value: empty string.</dd>
-
-<dt>`border`</dt>
-
-<dd>Indicates if borders must be drawn around the cell. The value can be either a number:
+* `border` Indicates if borders must be drawn around the cell. The value can be either a number:
 
 *   `0`: no border
 *   `1`: frame
@@ -37,7 +27,7 @@ or a string containing some or all of the following characters (in any order):
 *   `R`: right
 *   `B`: bottom
 
-Default value: `0`.</dd>
+Default value: `0`.
 
 <dt>`ln`</dt>
 
@@ -74,11 +64,11 @@ Putting `1` is equivalent to putting `0` and calling Ln() just after. Default va
 <div class="doc-source">
 
     // Set font
-    $pdf->SetFont('Arial','B',16);
+    $pdf->setFont('Arial','B',16);
     // Move to 8 cm to the right
-    $pdf->Cell(80);
+    $pdf->addCell(80);
     // Centered text in a framed 20*10 mm cell and line break
-    $pdf->Cell(20,10,'Title',1,1,'C');
+    $pdf->addCell(20,10,'Title',1,1,'C');
 
 </div>
 
