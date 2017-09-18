@@ -29,13 +29,13 @@ class PdfShape
     public function setDrawColor($r, $g = null, $b = null)
     {
         if (($r == 0 && $g == 0 && $b == 0) || $g === null) {
-            $this->_pdfDocument->data['DrawColor'] = sprintf('%.3F G', $r / 255);
+            $this->_pdfDocument->data['drawColor'] = sprintf('%.3F G', $r / 255);
         } else {
-            $this->_pdfDocument->data['DrawColor'] = sprintf('%.3F %.3F %.3F RG', $r / 255, $g / 255, $b / 255);
+            $this->_pdfDocument->data['drawColor'] = sprintf('%.3F %.3F %.3F RG', $r / 255, $g / 255, $b / 255);
         }
 
         if ($this->_pdfDocument->getPageCount() > 0) {
-            $this->_pdfDocument->out($this->_pdfDocument->data['DrawColor']);
+            $this->_pdfDocument->out($this->_pdfDocument->data['drawColor']);
         }
 
         return $this->_pdfDocument;
@@ -52,16 +52,17 @@ class PdfShape
     function setFillColor($r, $g = null, $b = null)
     {
         if (($r == 0 && $g == 0 && $b == 0) || $g === null) {
-            $this->_pdfDocument->data['FillColor'] = sprintf('%.3F g', $r / 255);
+            $this->_pdfDocument->data['fillColor'] = sprintf('%.3F g', $r / 255);
         } else {
-            $this->_pdfDocument->data['FillColor'] = sprintf('%.3F %.3F %.3F rg',$r/255,$g/255,$b/255);
+            $this->_pdfDocument->data['fillColor'] = sprintf('%.3F %.3F %.3F rg', $r / 255, $g / 255, $b / 255);
         }
 
-        $this->_pdfDocument->data['ColorFlag'] =
-            ($this->_pdfDocument->data['FillColor'] != $this->_pdfDocument->data['TextColor']);
+        $this->_pdfDocument->data['colorFlag'] = (
+            $this->_pdfDocument->getFillColor() != $this->_pdfDocument->getTextColor()
+        );
 
         if ($this->_pdfDocument->getPageCount() > 0) {
-            $this->_pdfDocument->out($this->_pdfDocument->data['FillColor']);
+            $this->_pdfDocument->out($this->_pdfDocument->data['fillColor']);
         }
 
         return $this->_pdfDocument;
@@ -75,7 +76,7 @@ class PdfShape
      */
     function setLineWidth($width)
     {
-        $this->_pdfDocument->data['LineWidth'] = $width;
+        $this->_pdfDocument->data['lineWidth'] = $width;
 
         if ($this->_pdfDocument->getPageCount() > 0) {
             $this->_pdfDocument->out(sprintf('%.2F w', $width * $this->_pdfDocument->getScaleFactor()));
@@ -87,13 +88,13 @@ class PdfShape
     /**
      * Draw a line
      *
-     * @param $x1
-     * @param $y1
-     * @param $x2
-     * @param $y2
+     * @param  $x1
+     * @param  $y1
+     * @param  $x2
+     * @param  $y2
      * @return PdfDocument
      */
-    function line($x1, $y1, $x2, $y2)
+    function addLine($x1, $y1, $x2, $y2)
     {
         $k = $this->_pdfDocument->getScaleFactor();
         $h = $this->_pdfDocument->getHeight();
@@ -115,7 +116,7 @@ class PdfShape
      * @param string $style
      * @return PdfDocument
      */
-    function rect($x, $y, $w, $h, $style='')
+    function addRect($x, $y, $w, $h, $style='')
     {
         if ($style == 'F') {
             $op = 'f';

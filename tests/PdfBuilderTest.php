@@ -1,5 +1,4 @@
 <?php
-
 use PdfBuilder\PdfDocument;
 
 class PdfBuilderTest extends PHPUnit_Framework_TestCase
@@ -101,5 +100,38 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase
         $pdfBuilder->rect(10, 10, 30, 30, 'F');
         $this->assertEquals("", $pdfBuilder->output("tests/test8.pdf", "F"));
         $this->assertEquals(728, strlen($pdfBuilder));
+    }
+
+    /**
+     * Testing both link functionality and FPDF compatibility
+     */
+    public function testLinksAndFpdfCompatibility()
+    {
+        // this is instead of "manually" creating a PDF class extending PdfBuilder
+        //$pdf = $this->getMockBuilder('\PdfDocument');
+        //$pdf->expects($this->any())
+        //    ->method('writeHTML')
+        //    ->will(
+        //        $this->returnValue(function() {
+
+        //        })
+        //    );
+    }
+
+    /**
+     * Test some FPDF example usage code
+     */
+    public function testFPDFexample()
+    {
+        global $title;
+        $title = '20000 Leagues Under the Seas';
+
+        $pdf = new PDF();
+
+        $pdf->SetTitle($title);
+        $pdf->SetAuthor('Jules Verne');
+        $pdf->PrintChapter(1, 'A RUNAWAY REEF', '20k_c1.txt');
+        $pdf->PrintChapter(2, 'THE PROS AND CONS', '20k_c2.txt');
+        $pdf->Output("tests/test10.pdf", "F");
     }
 }

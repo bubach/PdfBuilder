@@ -53,9 +53,9 @@ class PdfFonts {
         $this->_outputFontFiles();
 
         foreach ($this->fonts as $k => $font) {
-            $type = $font['type'];
-            $name = $font['name'];
-            
+            $type = isset($font['type']) ? $font['type'] : 'Core';
+            $name = isset($font['name']) ? $font['name'] : '';
+
             if ($type == 'Core') {
                 $this->_outputCoreFont($k, $name);
             } elseif ($type == 'Type1' || $type == 'TrueType') {
@@ -81,9 +81,8 @@ class PdfFonts {
         $output = $this->_pdfOutput;
 
         $this->fonts[$k]['n'] = $output->getPdfObjects()+1;
-        require_once($this->_pdfOutput->getDocument()->getFontPath().'Unifonts/ttfonts.php');
 
-        $ttf      = new \TTFontFile();
+        $ttf      = new TTFontFile();
         $fontname = 'MPDFAA'.'+'.$font['name'];
         $subset   = $font['subset'];
 
@@ -290,7 +289,7 @@ class PdfFonts {
 
     /**
      * Output external font files
-     * 
+     *
      * @throws \PdfBuilder\Exception\PdfException
      */
     protected function _outputFontFiles()
@@ -502,18 +501,20 @@ class PdfFonts {
      */
     public function addFont($family, $style = '', $file = '', $uni = false) //helvetica, B
     {
-        $family   = strtolower($family);
-        $style    = strtoupper($style);
-        $fontPath = $this->_pdfOutput->getDocument()->getFontPath();
+        $family    = strtolower($family);
+        $style     = strtoupper($style);
+        $outputter = $this->_pdfOutput;
+        $document  = $outputter->getDocument();
+        $fontPath  = $document->getFontPath();
 
         if ($style == 'IB') {
             $style = 'BI';
         }
         if ($file == '') {
             if ($uni) {
-                $file = str_replace(' ','',$family).strtolower($style).'.ttf';
+                $file = str_replace(' ', '', $family) . strtolower($style) . '.ttf';
             } else {
-                $file = str_replace(' ','',$family).strtolower($style).'.php';
+                $file = str_replace(' ', '', $family) . strtolower($style) . '.php';
             }
         }
 
@@ -542,8 +543,8 @@ class PdfFonts {
 
             if (!isset($type) || !isset($name) || $originalsize != $ttfstat['size']) {
                 $ttffile = $ttffilename;
-                require_once($fontPath.'Unifonts/ttfonts.php');
-                $ttf = new \TTFontFile();
+
+                $ttf = new TTFontFile();
                 $ttf->getMetrics($ttffile);
 
                 $cw   = $ttf->charWidths;
@@ -594,9 +595,9 @@ class PdfFonts {
             $aliasNbPages = $this->_pdfOutput->getDocument()->getAliasNbPages();
 
             if (!empty($aliasNbPages)) {
-                $sbarr = range(0,57);
+                $sbarr = range(0, 57);
             } else {
-                $sbarr = range(0,32);
+                $sbarr = range(0, 32);
             }
 
             $this->fonts[$fontkey] = array(
@@ -618,7 +619,7 @@ class PdfFonts {
             unset($cw);
         } else {
             $info      = $this->_loadfont($file);
-            $info['i'] = count($this->fonts)+1;
+            $info['i'] = count($this->fonts) + 1;
 
             if (!empty($info['diff'])) {
                 $n = array_search($info['diff'], $this->_diffs);
@@ -640,5 +641,4 @@ class PdfFonts {
             $this->fonts[$fontkey] = $info;
         }
     }
-
-} 
+}

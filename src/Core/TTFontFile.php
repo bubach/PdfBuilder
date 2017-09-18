@@ -1,4 +1,5 @@
 <?php
+namespace PdfBuilder\Core;
 
 /**
  * Define the value used in the "head" table of a created TTF file
@@ -9,7 +10,6 @@
  */
 define("_TTF_MAC_HEADER", false);
 
-
 /**
  * TrueType Font Glyph operators
  */
@@ -19,7 +19,6 @@ define("GF_SCALE",(1 << 3));
 define("GF_MORE",(1 << 5));
 define("GF_XYSCALE",(1 << 6));
 define("GF_TWOBYTWO",(1 << 7));
-
 
 
 class TTFontFile {
@@ -1137,7 +1136,6 @@ class TTFontFile {
             die('Unknown location table format '.$indexToLocFormat);
     }
 
-
     /**
      * CMAP Format 4
      *
@@ -1188,7 +1186,6 @@ class TTFontFile {
             }
         }
     }
-
 
     /**
      * Put the TTF file together

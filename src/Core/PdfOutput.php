@@ -528,4 +528,4 @@ class PdfOutput
         $s = str_replace("\r",'\\r',$s);
         return $s;
     }
-} 
+}

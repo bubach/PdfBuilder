@@ -59,6 +59,10 @@ class PdfFooter {
             call_user_func($this->_footerCallback, $this->_pdfDocument);
         }
 
+        if (method_exists($this->_pdfDocument, 'Footer')) {
+            call_user_func(array($this->_pdfDocument, 'Footer'));
+        }
+
         $this->_pdfDocument->setInHeaderOrFooter(false);
         foreach ($this->_dataCopy as $key => $value) {
             if ($value !== $this->_pdfDocument->data[$key]) {

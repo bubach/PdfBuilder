@@ -102,9 +102,9 @@ class PdfText
     public function setTextColor($r, $g = null, $b = null)
     {
         if (($r == 0 && $g == 0 && $b == 0) || $g === null) {
-            $this->_pdfDocument->__set('TextColor', sprintf('%.3F g', $r / 255));
+            $this->_pdfDocument->data['textColor'] = sprintf('%.3F g', $r / 255);
         } else {
-            $this->_pdfDocument->__set('TextColor', sprintf('%.3F %.3F %.3F rg', $r / 255, $g / 255, $b / 255));
+            $this->_pdfDocument->data['textColor'] = sprintf('%.3F %.3F %.3F rg', $r / 255, $g / 255, $b / 255);
         }
         $this->_pdfDocument->setColorFlag(($this->_pdfDocument->getFillColor() != $this->_pdfDocument->getTextColor()));
 
@@ -156,17 +156,17 @@ class PdfText
     /**
      * Output a cell
      *
-     * @param  $w
-     * @param  int $h
+     * @param  int    $w
+     * @param  int    $h
      * @param  string $txt
-     * @param  int $border
-     * @param  int $ln
+     * @param  int    $border
+     * @param  int    $ln
      * @param  string $align
-     * @param  bool $fill
+     * @param  bool   $fill
      * @param  string $link
      * @return PdfDocument
      */
-    function addCell($w, $h = 0, $txt = '', $border = 0, $ln = 0, $align = '', $fill = false, $link = '')
+    public function addCell($w, $h = 0, $txt = '', $border = 0, $ln = 0, $align = '', $fill = false, $link = '')
     {
         $document = $this->_pdfDocument;
         $output   = $document->getOutputter();
@@ -176,18 +176,23 @@ class PdfText
         $selectedFont = $document->getCurrentFont();
         $currentFont  = &$output->getFontOutputter()->fonts[$selectedFont];
 
-        if ($page->getY() + $h > $page->getPageBreakTrigger() && !$document->getInHeaderOrFooter() && $page->acceptPageBreak()) {
+        if ($page->getY() + $h > $page->getPageBreakTrigger() &&
+            !$document->getInHeaderOrFooter() && $page->acceptPageBreak()
+        ) {
             $x  = $page->getX();
             $ws = $this->_ws;
+
             if ($ws > 0) {
                 $this->_ws = 0;
                 $document->out('0 Tw');
             }
+
             $page = $document->addPage($document->getPage()->getOrientation(), $document->getPage()->getCurPageSize());
             $page->setX($x);
+
             if ($ws > 0) {
                 $this->_ws = $ws;
-                $document->out(sprintf('%.3F Tw',$ws*$k));
+                $document->out(sprintf('%.3F Tw', $ws * $k));
             }
         }
 
@@ -198,27 +203,58 @@ class PdfText
 
         if ($fill || $border == 1) {
             if ($fill) {
-                $op = ($border==1) ? 'B' : 'f';
+                $op = ($border == 1) ? 'B' : 'f';
             } else {
                 $op = 'S';
             }
-            $s = sprintf('%.2F %.2F %.2F %.2F re %s ',$page->getX() * $k, ($page->getHeight() - $page->getY()) * $k , $w * $k, -$h * $k, $op);
+            $s = sprintf(
+                '%.2F %.2F %.2F %.2F re %s ',
+                $page->getX() * $k,
+                ($page->getHeight() - $page->getY()) * $k,
+                $w * $k,
+                -$h * $k,
+                $op
+            );
         }
 
         if (is_string($border)) {
             $x = $page->getX();
             $y = $page->getY();
-            if (strpos($border,'L') !== false) {
-                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ',$x * $k, ($page->getHeight() - $y) * $k, $x * $k, ($page->getHeight()- ($y + $h)) * $k);
+            if (strpos($border, 'L') !== false) {
+                $s .= sprintf(
+                    '%.2F %.2F m %.2F %.2F l S ',
+                    $x * $k,
+                    ($page->getHeight() - $y) * $k,
+                    $x * $k,
+                    ($page->getHeight() - ($y + $h)) * $k
+                );
             }
-            if (strpos($border,'T') !== false) {
-                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ',$x * $k,($page->getHeight() - $y) * $k, ($x + $w) * $k,($page->getHeight() - $y) * $k);
+            if (strpos($border, 'T') !== false) {
+                $s .= sprintf(
+                    '%.2F %.2F m %.2F %.2F l S ',
+                    $x * $k,
+                    ($page->getHeight() - $y) * $k,
+                    ($x + $w) * $k,
+                    ($page->getHeight() - $y) * $k
+                );
             }
-            if (strpos($border,'R') !== false) {
-                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ', ($x + $w) * $k,($page->getHeight() - $y) * $k, ($x + $w) * $k,($page->getHeight() - ($y + $h)) * $k);
+            if (strpos($border, 'R') !== false) {
+                $s .= sprintf(
+                    '%.2F %.2F m %.2F %.2F l S ',
+                    ($x + $w) * $k,
+                    ($page->getHeight() - $y) * $k,
+                    ($x + $w) * $k,
+                    ($page->getHeight() - ($y + $h)) * $k
+                );
             }
-            if (strpos($border,'B') !== false) {
-                $s .= sprintf('%.2F %.2F m %.2F %.2F l S ', $x * $k,($page->getHeight() - ($y+$h)) * $k, ($x+$w) * $k, ($page->getHeight()-($y+$h)) * $k);
+            if (strpos($border, 'B') !== false) {
+                $s .= sprintf(
+                    '%.2F %.2F m %.2F %.2F l S ',
+                    $x * $k,
+                    ($page->getHeight() - ($y+$h)) * $k,
+                    ($x+$w) * $k,
+                    ($page->getHeight()-($y+$h)) * $k
+                );
             }
         }
 
@@ -614,7 +650,7 @@ class PdfText
      * @param  null $h
      * @return PdfDocument
      */
-    public function ln($h = null)
+    public function addLn($h = null)
     {
         $page = $this->_pdfDocument->getPage();
 
@@ -670,7 +706,7 @@ class PdfText
         $fontOutput = $document->getOutputter()->getFontOutputter();
 
         if ($family == '') {
-            $family = $document->getFontFamily();
+            $family = ($document->getFontFamily()) ? $document->getFontFamily() : '';
         } else {
             $family = strtolower($family);
         }
@@ -691,7 +727,10 @@ class PdfText
             $size = $document->getFontSizePt();
         }
 
-        if ($document->getFontFamily() == $family && $document->getFontStyle() == $style && $document->getFontSizePt() == $size) {
+        if ($document->getFontFamily() == $family &&
+            $document->getFontStyle() == $style &&
+            $document->getFontSizePt() == $size
+        ) {
             return;
         }
 
@@ -727,7 +766,7 @@ class PdfText
             $document->setUnifontSubset(false);
         }
 
-        if ($document->getCurPageNo() > 0) {
+        if ($document->getPageNo() > 0) {
             $document->out(sprintf('BT /F%d %.2F Tf ET', $fontOutput->fonts[$fontkey]['i'], $document->getFontSizePt()));
         }
 
@@ -752,7 +791,7 @@ class PdfText
         $document->setFontSize($size / $document->getScaleFactor());
         $currentFont = $document->getCurrentFont();
 
-        if ($document->getCurPageNo() > 0) {
+        if ($document->getPageNo() > 0) {
             $document->out(sprintf('BT /F%d %.2F Tf ET', $fontOutput->fonts[$currentFont]['i'], $document->getFontSizePt()));
         }
 

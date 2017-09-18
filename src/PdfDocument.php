@@ -107,15 +107,21 @@ class PdfDocument
         'setTextColor'   => 'PdfBuilder\Plugins\PdfText',
         'getStringWidth' => 'PdfBuilder\Plugins\PdfText',
         'addText'        => 'PdfBuilder\Plugins\PdfText',
+        'addLn'          => 'PdfBuilder\Plugins\PdfText',
         'addCell'        => 'PdfBuilder\Plugins\PdfText',
         'addMultiCell'   => 'PdfBuilder\Plugins\PdfText',
         'setFont'        => 'PdfBuilder\Plugins\PdfText',
         'setDrawColor'   => 'PdfBuilder\Plugins\PdfShape',
         'setFillColor'   => 'PdfBuilder\Plugins\PdfShape',
         'setLineWidth'   => 'PdfBuilder\Plugins\PdfShape',
-        'line'           => 'PdfBuilder\Plugins\PdfShape',
-        'rect'           => 'PdfBuilder\Plugins\PdfShape',
+        'addLine'        => 'PdfBuilder\Plugins\PdfShape',
+        'addRect'        => 'PdfBuilder\Plugins\PdfShape',
     );
+
+    /**
+     * @var array One instance reference for each plugin
+     */
+    protected $pluginInstances = array();
 
     /**
      * Document settings, in array for easy plugin usage
@@ -372,7 +378,7 @@ class PdfDocument
     /**
      * @return int Current page number
      */
-    public function getCurPageNo()
+    public function getPageNo()
     {
         return $this->_curPage;
     }
@@ -395,7 +401,7 @@ class PdfDocument
      */
     public function getPage($number = null)
     {
-        $number = (is_null($number) || ($number - 1 < 0)) ? ($this->getCurPageNo() - 1) : ($number - 1);
+        $number = (is_null($number) || ($number - 1 < 0)) ? ($this->getPageNo() - 1) : ($number - 1);
 
         if (isset($this->_pages[$number])) {
             $this->_curPage = $number + 1;
@@ -459,7 +465,7 @@ class PdfDocument
     }
 
     /**
-     * close the document
+     * Close the document
      */
     public function close()
     {
@@ -585,7 +591,9 @@ class PdfDocument
     {
         if (PHP_SAPI != 'cli') {
             if (headers_sent($file, $line)) {
-                throw new PdfException("Some data has already been outputted, can't send PDF file (output started at $file:$line)");
+                throw new PdfException(
+                    "Some data has already been outputted, can't send PDF file (output started at $file:$line)"
+                );
             }
         }
         if (ob_get_length()) {
@@ -607,56 +615,8 @@ class PdfDocument
     }
 
     /**
-     * Magic getter, checks plugins first.
-     *
-     * @param  $name
-     * @return string
-     */
-    public function __get($name)
-    {
-        $method = "get".ucfirst($name);
-        $class  = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
-
-        if ($class) {
-            if (!is_object($class)) {
-                $class = new $class($this);
-                $this->plugins[$method] = $class;
-            }
-            return call_user_func(array($class, $method));
-        } else {
-            return isset($this->data[$name]) ? $this->data[$name] : false;
-        }
-    }
-
-    /**
-     * Magic setter, checks plugins first
-     *
-     * @param  $name
-     * @param  $value
-     * @return mixed
-     */
-    public function __set($name, $value)
-    {
-        $method = "set".ucfirst($name);
-        $class  = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
-
-        if ($class) {
-            if (!is_object($class)) {
-                $class = new $class($this);
-                $this->plugins[$method] = $class;
-            }
-            return call_user_func_array(array($class, $method), $value);
-        } else {
-            if (is_array($value) && count($value) < 2) {
-                $value = reset($value);
-            }
-            $this->data[$name] = $value;
-            return $this;
-        }
-    }
-
-    /**
-     * Call PdfPage functions
+     * Fluently call methods in PdfPage or other plugins. Also
+     * acts as getter / setter for PDF-settings and variables.
      *
      * @param  $method
      * @param  $parameters
@@ -664,20 +624,48 @@ class PdfDocument
      */
     public function __call($method, $parameters)
     {
-        $class = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
+        $class   = isset($this->plugins[$method]) ? $this->plugins[$method] : false;
+        $class   = isset($this->plugins[lcfirst($method)]) ? $this->plugins[lcfirst($method)] : $class;
+        $operand = false;
+
+        if (!$class) {
+            $operand = (strlen($method) > 3) ? substr(lcfirst($method), 0, 3) : false;
+            $field   = ($operand && strlen($method) > 3) ? lcfirst(substr($method, 3)) : $method;
+        }
+
+        if (!$class) {
+            foreach (array("add", "get", "set") as $op) {
+                if (isset($this->plugins[$op.ucfirst($method)])) {
+                    $class  = $this->plugins[$op.ucfirst($method)];
+                    $method = $op.ucfirst($method);
+                    break;
+                } elseif (method_exists($this, $op.ucfirst($method))) {
+                    return call_user_func_array(array($this, $op.ucfirst($method)), $parameters);
+                }
+            }
+        }
 
         if ($class) {
-            if (!is_object($class)) {
-                $class = new $class($this);
-                $this->plugins[$method] = $class;
+            if (!isset($this->pluginInstances[$class])) {
+                $this->pluginInstances[$class] = new $class($this);
             }
-            return call_user_func_array(array($class, $method), $parameters);
-        } else if ($this->getPageCount() > 0 && method_exists($this->getPage(), $method)) {
-            return call_user_func_array(array($this->getPage(), $method), $parameters);
-        } else if (substr($method, 0, 3) == "set") {
-            return $this->__set(substr($method, 3), $parameters);
-        } else if (substr($method, 0, 3) == "get") {
-            return $this->__get(substr($method, 3));
+            return call_user_func_array(
+                array($this->pluginInstances[$class], $method),
+                $parameters
+            );
+        } elseif ($this->getPageCount() > 0 && method_exists($this->getPage(), $method)) {
+            return call_user_func_array(
+                array($this->getPage(), $method),
+                $parameters
+            );
+        } elseif ($operand == "set") {
+            if (is_array($parameters) && count($parameters) < 2) {
+                $parameters = reset($parameters);
+            }
+            $this->data[$field] = $parameters;
+            return $this;
+        } elseif ($operand == "get") {
+            return isset($this->data[$field]) ? $this->data[$field] : false;
         } else {
             return false;
         }

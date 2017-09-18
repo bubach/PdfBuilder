@@ -183,7 +183,7 @@ class PdfPage
     /**
      * Get page size
      *
-     * @param $size
+     * @param  $size
      * @return array|string
      * @throws PdfException
      */
@@ -203,6 +203,7 @@ class PdfPage
         } elseif ($size[0] > $size[1]) {
             return array($size[1], $size[0]);
         }
+
         return $size;
     }
 
@@ -220,29 +221,36 @@ class PdfPage
      * Set line width, outputting directly to the page buffer
      * since it's called when page-count might be in flux.
      *
-     * @param $width
+     * @param  $width
+     * @return PdfDocument
      */
     function setLineWidth($width)
     {
         $this->_lineWidth  = $width;
         $this->pageBuffer .= sprintf("%.2F w\n", $width * $this->getDocument()->getScaleFactor());
+
+        return $this->_pdfDocument;
     }
 
     /**
      * Set page margins
      *
-     * @param $left
-     * @param $top
-     * @param null $right
+     * @param              $left
+     * @param              $top
+     * @param  null        $right
+     * @return PdfDocument
      */
     public function setMargins($left, $top, $right = null)
     {
         $this->_lMargin = $left;
         $this->_tMargin = $top;
+
         if ($right === null) {
             $right = $left;
         }
         $this->_rMargin = $right;
+
+        return $this->_pdfDocument;
     }
 
     /**
@@ -253,7 +261,8 @@ class PdfPage
     public function setLeftMargin($margin)
     {
         $this->_lMargin = $margin;
-        if ($this->getDocument()->getCurPageNo() > 0 && $this->_x < $margin) {
+
+        if ($this->getDocument()->getPageNo() > 0 && $this->_x < $margin) {
             $this->_x = $margin;
         }
     }
@@ -271,11 +280,14 @@ class PdfPage
     /**
      * Set top margin
      *
-     * @param $margin
+     * @param  $margin
+     * @return PdfDocument
      */
     public function setTopMargin($margin)
     {
         $this->_tMargin = $margin;
+
+        return $this->_pdfDocument;
     }
 
     /**
@@ -301,24 +313,30 @@ class PdfPage
     /**
      * Set right margin
      *
-     * @param $margin
+     * @param  $margin
+     * @return PdfDocument
      */
     public function setRightMargin($margin)
     {
         $this->_rMargin = $margin;
+
+        return $this->_pdfDocument;
     }
 
     /**
      * Set auto page break mode and triggering margin
      *
-     * @param $auto
-     * @param int $margin
+     * @param  $auto
+     * @param  int         $margin
+     * @return PdfDocument
      */
     public function setAutoPageBreak($auto, $margin = 0)
     {
         $this->_autoPageBreak    = $auto;
         $this->_bMargin          = $margin;
         $this->_pageBreakTrigger = $this->_h - $margin;
+
+        return $this->_pdfDocument;
     }
 
     /**
@@ -360,6 +378,7 @@ class PdfPage
     {
         return $this->_w;
     }
+
     /**
      * Get x position
      *
@@ -374,7 +393,7 @@ class PdfPage
      * Set x position
      *
      * @param  $x
-     * @return $this
+     * @return PdfDocument
      */
     public function setX($x)
     {
@@ -383,7 +402,8 @@ class PdfPage
         } else {
             $this->_x = $this->_w + $x;
         }
-        return $this;
+
+        return $this->_pdfDocument;
     }
 
     /**
@@ -400,29 +420,34 @@ class PdfPage
      * Set y position and reset x
      *
      * @param  $y
-     * @return $this
+     * @return PdfDocument
      */
     public function setY($y)
     {
         $this->_x = $this->_lMargin;
+
         if ($y >= 0) {
             $this->_y = $y;
         } else {
             $this->_y = $this->_h + $y;
         }
-        return $this;
+
+        return $this->_pdfDocument;
     }
 
     /**
      * Set x and y positions
      *
-     * @param $x
-     * @param $y
+     * @param  $x
+     * @param  $y
+     * @return PdfDocument
      */
     public function setXY($x, $y)
     {
         $this->setY($y);
         $this->setX($x);
+
+        return $this->_pdfDocument;
     }
 
     /**
@@ -442,7 +467,7 @@ class PdfPage
      * @param  $link
      * @param  int $y
      * @param  $page
-     * @return $this
+     * @return PdfDocument
      */
     public function setLink($link, $y = 0, $page = -1)
     {
@@ -450,11 +475,11 @@ class PdfPage
             $y = $this->_y;
         }
         if ($page == -1) {
-            $page = $this->_pdfDocument->getCurPageNo();
+            $page = $this->_pdfDocument->getPageNo();
         }
         $this->_pdfDocument->internalLinks[$link] = array($page, $y);
 
-        return $this;
+        return $this->_pdfDocument;
     }
 
     /**
@@ -465,7 +490,7 @@ class PdfPage
      * @param  $w
      * @param  $h
      * @param  $link
-     * @return $this
+     * @return PdfDocument
      */
     public function link($x, $y, $w, $h, $link)
     {
@@ -479,7 +504,7 @@ class PdfPage
             $link
         );
 
-        return $this;
+        return $this->_pdfDocument;
     }
 
     /**
