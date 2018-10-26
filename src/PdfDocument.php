@@ -129,7 +129,17 @@ class PdfDocument
      *
      * @var array
      */
-    public $data = array();
+    public $data = array(
+        'fontFamily' => '',
+        'fontStyle' => '',
+        'fontSizePt' => 12,
+        'underline' => false,
+        'lineWidth' => null,
+        'drawColor' => '0 G',
+        'fillColor' => '0 g',
+        'textColor' => '0 g',
+        'colorFlag' => false,
+    );
 
     /**
      * @var PdfOutput
@@ -146,7 +156,7 @@ class PdfDocument
      */
     public function __construct($orientation = 'P', $unit = 'mm', $size = 'A4', $fontPath = null)
     {
-        $fontPath = empty($fontPath) ? dirname(__FILE__).'/Fonts/' : $fontPath;
+        $fontPath = empty($fontPath) ? dirname(__FILE__) . '/Fonts/' : $fontPath;
 
         $this->_doChecks();
         $this->setFontPath($fontPath);
@@ -236,6 +246,16 @@ class PdfDocument
     {
         $this->_pageSizes[$this->_curPage] = array($wPt, $hPt);
         return $this;
+    }
+
+    /**
+     * Shortcut for FPDF compatibility with classes that extend PdfDocument
+     *
+     * @return mixed
+     */
+    public function acceptPageBreak()
+    {
+        return $this->getPage()->acceptPageBreak();
     }
 
     /**
@@ -384,6 +404,16 @@ class PdfDocument
     }
 
     /**
+     * For FPDF compatibility
+     *
+     * @return int
+     */
+    public function pageNo()
+    {
+        return $this->getPageNo();
+    }
+
+    /**
      * Get the amount of pages in the document
      *
      * @return int
@@ -490,12 +520,11 @@ class PdfDocument
      */
     public function addPage($orientation = '',  $size = '')
     {
-        $this->_curState = self::STATE_END_PAGE;
-
         if ($this->getPageCount() > 0) {
+            $dataCopy = $this->data;
             $this->outputFooter();
-            $this->setState(self::STATE_END_PAGE);
 
+            $this->setState(self::STATE_END_PAGE);
             $orientation = empty($orientation) ? $this->getPage()->getOrientation() : $orientation;
             $size        = empty($size) ? $this->getPage()->getCurPageSize() : $size;
         } else {
@@ -507,7 +536,22 @@ class PdfDocument
         $this->_curPage++;
         $this->_pages[] = new PdfPage($this, $orientation, $size);
 
+        $dataCopy = (isset($dataCopy)) ? $dataCopy : $this->data;
         $this->outputHeader();
+
+        $font_data = array('fontFamily', 'fontStyle', 'underline', 'fontSizePt');
+        if (!empty($dataCopy['fontFamily'])) {
+            $style = $dataCopy['fontStyle'] . ($dataCopy['underline']) ? 'U' : '';
+            $this->setFont($dataCopy['fontFamily'], $style, $dataCopy['fontSizePt']);
+        }
+
+        foreach ($dataCopy as $key => $value) {
+            if ($value !== $this->data[$key] && !in_array($key, $font_data)) {
+                $method = 'set' . ucfirst($key);
+                $this->$method($value);
+            }
+        }
+
         return $this->getPage();
     }
 

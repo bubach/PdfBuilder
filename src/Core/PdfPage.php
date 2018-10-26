@@ -146,14 +146,13 @@ class PdfPage
             }
         } else {
             $pdfDocument->setDefPageSize($this->getCurPageSize());
+            $this->setLineWidth(0.567 / $pdfDocument->getScaleFactor());
         }
 
         $margin = 28.35 / $pdfDocument->getScaleFactor();
         $this->setMargins($margin, $margin);
 
         $this->_cMargin = $margin / 10;
-        $this->setLineWidth(0.567 / $pdfDocument->getScaleFactor());
-
         $this->setAutoPageBreak(true, 2 * $margin);
 
         $this->_x = $this->_lMargin;
@@ -226,7 +225,7 @@ class PdfPage
      */
     function setLineWidth($width)
     {
-        $this->_lineWidth  = $width;
+        $this->_pdfDocument->data['lineWidth']  = $width;
         $this->pageBuffer .= sprintf("%.2F w\n", $width * $this->getDocument()->getScaleFactor());
 
         return $this->_pdfDocument;
@@ -350,7 +349,7 @@ class PdfPage
     }
 
     /**
-     * Get pagebreak trigger
+     * Get page break trigger
      *
      * @return mixed
      */

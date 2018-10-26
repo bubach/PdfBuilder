@@ -177,7 +177,7 @@ class PdfText
         $currentFont  = &$output->getFontOutputter()->fonts[$selectedFont];
 
         if ($page->getY() + $h > $page->getPageBreakTrigger() &&
-            !$document->getInHeaderOrFooter() && $page->acceptPageBreak()
+            !$document->getInHeaderOrFooter() && $document->acceptPageBreak()
         ) {
             $x  = $page->getX();
             $ws = $this->_ws;
@@ -351,7 +351,7 @@ class PdfText
      * @param  bool $fill
      * @return PdfDocument
      */
-    function addMultiCell($w, $h, $txt, $border = 0, $align = 'J', $fill = false)
+    public function addMultiCell($w, $h, $txt, $border = 0, $align = 'J', $fill = false)
     {
         $document = $this->_pdfDocument;
         $page     = $document->getPage();
@@ -359,9 +359,8 @@ class PdfText
         $selectedFont = $document->getCurrentFont();
         $currentFont  = &$document->getOutputter()->getFontOutputter()->fonts[$selectedFont];
 
-        $cw = &$currentFont['cw'];
         if ($w == 0) {
-            $w = $page->getWidth()- $page->getRightMargin() - $page->getX();
+            $w = $page->getWidth() - $page->getRightMargin() - $page->getX();
         }
 
         $wmax = ($w - 2 * $page->getCellMargin());
@@ -443,7 +442,7 @@ class PdfText
             if ($document->getUnifontSubset()) {
                 $l += $this->getStringWidth($c);
             } else {
-                $l += $cw[$c] * $document->getFontSize() / 1000;
+                $l += $currentFont['cw'][$c] * $document->getFontSize() / 1000;
             }
 
             // Automatic line break
@@ -525,7 +524,6 @@ class PdfText
         $selectedFont = $document->getCurrentFont();
         $currentFont  = &$document->getOutputter()->getFontOutputter()->fonts[$selectedFont];
 
-        $cw = &$currentFont['cw'];
         $w  = $page->getWidth() - $page->getRightMargin() - $page->getX();
 
         $wmax = ($w - 2 * $page->getCellMargin());
@@ -583,7 +581,7 @@ class PdfText
             if ($document->getUnifontSubset()) {
                 $l += $this->getStringWidth($c);
             } else {
-                $l += $cw[$c] * $document->getFontSize() / 1000;
+                $l += $currentFont['cw'][$c] * $document->getFontSize() / 1000;
             }
 
             // Automatic line break

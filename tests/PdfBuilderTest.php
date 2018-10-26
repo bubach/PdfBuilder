@@ -22,7 +22,7 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase
         $pdfBuilder = new PdfDocument();
         $pdfBuilder->addPage()->addPage("L", "A3");
         $this->assertEquals("", $pdfBuilder->output("tests/test2.pdf", "F"));
-        $this->assertEquals(945, strlen($pdfBuilder));
+        $this->assertEquals(938, strlen($pdfBuilder));
     }
 
     /**
@@ -124,6 +124,7 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase
     public function testFPDFexample()
     {
         global $title;
+        define("FPDF_FONTPATH", "./src/Fonts");
         $title = '20000 Leagues Under the Seas';
 
         $pdf = new PDF();
@@ -132,6 +133,41 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase
         $pdf->SetAuthor('Jules Verne');
         $pdf->PrintChapter(1, 'A RUNAWAY REEF', '20k_c1.txt');
         $pdf->PrintChapter(2, 'THE PROS AND CONS', '20k_c2.txt');
-        $pdf->Output("tests/test10.pdf", "F");
+
+        $this->assertEquals("", $pdf->Output("tests/test10.pdf", "F"));
+        $this->assertEquals(11258, strlen($pdf));
+    }
+
+    /**
+     * again, but with columns
+     */
+    public function testFPDFcolumns() {
+        $pdf = new PDF();
+        $pdf->useColumns(true);
+        $title = '20000 Leagues Under the Seas';
+
+        $pdf->SetTitle($title);
+        $pdf->SetAuthor('Jules Verne');
+        $pdf->PrintChapter(1,'A RUNAWAY REEF','20k_c1.txt');
+        $pdf->PrintChapter(2,'THE PROS AND CONS','20k_c2.txt');
+
+        $this->assertEquals("", $pdf->Output("tests/test11.pdf", "F"));
+        $this->assertEquals(14216, strlen($pdf));
+    }
+
+    /**
+     * Test FPDF fancy table demo
+     */
+    public function testFPDFfancyTable() {
+        $pdf = new PDF();
+        $header = array('Country', 'Capital', 'Area (sq km)', 'Pop. (thousands)');
+        $data = $pdf->LoadData('countries.txt');
+
+        $pdf->SetFont('Arial','',14);
+        $pdf->AddPage();
+        $pdf->FancyTable($header,$data);
+
+        $this->assertEquals("", $pdf->Output("tests/test12.pdf", "F"));
+        $this->assertEquals(14216, strlen($pdf));
     }
 }

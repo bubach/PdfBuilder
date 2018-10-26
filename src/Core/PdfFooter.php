@@ -52,8 +52,7 @@ class PdfFooter {
      */
     public function outputFooter()
     {
-        $this->_dataCopy = $this->_pdfDocument->data;
-        $this->_pdfDocument->setInHeaderOrFooter(true);
+        $this->_pdfDocument->data['inHeaderOrFooter'] = true;
 
         if (is_callable($this->_footerCallback)) {
             call_user_func($this->_footerCallback, $this->_pdfDocument);
@@ -63,14 +62,7 @@ class PdfFooter {
             call_user_func(array($this->_pdfDocument, 'Footer'));
         }
 
-        $this->_pdfDocument->setInHeaderOrFooter(false);
-        foreach ($this->_dataCopy as $key => $value) {
-            if ($value !== $this->_pdfDocument->data[$key]) {
-                $method = "set".ucfirst($key);
-                $this->_pdfDocument->$method($value);
-            }
-        }
-
+        $this->_pdfDocument->data['inHeaderOrFooter'] = false;
         return $this->_pdfDocument;
     }
 

@@ -167,7 +167,7 @@ class PdfOutput
     protected function _putXObjectDict()
     {
         foreach ($this->getImageOutputter()->images as $image) {
-            $this->out('/I'.$image['i'].' '.$image['n'].' 0 R');
+            $this->out('/I' . $image['i'] . ' ' . $image['n'] . ' 0 R');
         }
     }
 
