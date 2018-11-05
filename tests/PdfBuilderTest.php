@@ -103,25 +103,9 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase
     }
 
     /**
-     * Testing both link functionality and FPDF compatibility
-     */
-    public function testLinksAndFpdfCompatibility()
-    {
-        // this is instead of "manually" creating a PDF class extending PdfBuilder
-        //$pdf = $this->getMockBuilder('\PdfDocument');
-        //$pdf->expects($this->any())
-        //    ->method('writeHTML')
-        //    ->will(
-        //        $this->returnValue(function() {
-
-        //        })
-        //    );
-    }
-
-    /**
      * Test some FPDF example usage code
      */
-    public function testFPDFexample()
+    public function testFpdfExample()
     {
         global $title;
         define("FPDF_FONTPATH", "./src/Fonts");
@@ -141,7 +125,7 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase
     /**
      * again, but with columns
      */
-    public function testFPDFcolumns() {
+    public function testFpdfColumns() {
         $pdf = new PDF();
         $pdf->useColumns(true);
         $title = '20000 Leagues Under the Seas';
@@ -158,7 +142,7 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase
     /**
      * Test FPDF fancy table demo
      */
-    public function testFPDFfancyTable() {
+    public function testFpdfFancyTable() {
         $pdf = new PDF();
         $header = array('Country', 'Capital', 'Area (sq km)', 'Pop. (thousands)');
         $data = $pdf->LoadData('countries.txt');
@@ -168,6 +152,6 @@ class PdfBuilderTest extends PHPUnit_Framework_TestCase
         $pdf->FancyTable($header,$data);
 
         $this->assertEquals("", $pdf->Output("tests/test12.pdf", "F"));
-        $this->assertEquals(14216, strlen($pdf));
+        $this->assertEquals(2852, strlen($pdf));
     }
 }
