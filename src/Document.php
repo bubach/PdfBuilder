@@ -1,14 +1,10 @@
 <?php
 namespace PdfBuilder;
 
-use PdfBuilder\Exception\PdfException;
-use PdfBuilder\Pdf\CatalogDictionary;
-use PdfBuilder\Pdf\PagesDictionary;
-use PdfBuilder\Pdf\CosObject;
-use PdfBuilder\Pdf\Stream;
-use ArrayIterator;
+use PdfBuilder\Pdf\CosStructure;
+use PdfBuilder\Pdf\Builder;
 
-class Document extends PagesDictionary
+class Document extends CosStructure
 {
     /**
      * Constant for library version
@@ -16,67 +12,46 @@ class Document extends PagesDictionary
     const VERSION = '1.0.0';
 
     /**
-     * @var array Options
+     * @var Builder The Pdf builder instance.
      */
-    protected $options;
+    protected $builder;
 
     /**
-     * @var CosObject[]
-     */
-    protected $objects = [];
-
-    /**
-     * @var array Page[]
+     * @var array Page[] Array of Page instances
      */
     protected $pages = [];
 
     /**
-     * @var CatalogDictionary The Pdf catalog
-     */
-    protected $catalog;
-
-    /**
-     * @var CosObject The Pdf meta-information object
-     */
-    protected $information;
-
-    /**
-     * @var array Cross references for the Xref-table.
-     */
-    protected $crossReferences = [];
-
-    /**
      * @var float PDF format version
      */
-    public $pdfVersion = 1.3;
+    public $pdfVersion = 1.7;
 
     /**
      * Constructor.
      *
-     * @param array $options
+     * @param array $options Bounding box options.
      */
-    public function __construct($options = array())
+    public function __construct($options = [])
     {
-        parent::__construct();
-        $this->catalog = new CatalogDictionary();
-        $this->information = new CosObject();
+        parent::__construct('Pages');
+        $this->builder = new Builder($this);
+    }
 
-        $this->add($this->catalog);
-        $this->add($this);
-        $this->add($this->information);
-
-        $this->setDefaultInfoValues();
-
-        $this->catalog->setValue('Pages', $this->getReference());
-        $this->options = $options;
-
-        $this->addPage();
+    /**
+     * Set page bounding box
+     *
+     * @param string $type
+     * @param array  $dimensions Left, bottom, right, top.
+     */
+    public function setBoundingBox($type = 'MediaBox', $dimensions)
+    {
+        $this->getPage()->setArrayValue($type, $dimensions);
     }
 
     /**
      * Add a new or existing page to the document
      *
-     * @param  null $page
+     * @param  null|Page $page
      * @return Page
      */
     public function addPage($page = null)
@@ -101,8 +76,51 @@ class Document extends PagesDictionary
         } elseif (empty($pageNo) || !isset($this->pages[$pageNo - 1])) {
             return end($this->pages);
         }
-
         return $this->pages[$pageNo - 1];
+    }
+
+    /**
+     * Add an object to the document
+     *
+     * @param  $object
+     * @return CosStructure
+     */
+    public function add($object)
+    {
+        if (is_string($object)) {
+            $object = new CosStructure($object);
+        }
+
+        if ($object instanceof Page) {
+            $this->pages[] = $object;
+            $object->pageNo = count($this->pages);
+            $object->setParent($this);
+
+            $this->setArrayValue('Kids', $object->getLazyReference(), true);
+            $this->setValue('Count', $this->getCount('Kids'));
+        }
+        return $this->builder->add($object);
+    }
+
+    /**
+     * Get the library version.
+     *
+     * @return string PdfBuilder version
+     */
+    public function getVersion()
+    {
+        return self::VERSION;
+    }
+
+    /**
+     * Get reference to trailer objects
+     *
+     * @param  $name
+     * @return CosStructure
+     */
+    public function getTrailerObject($name)
+    {
+        return $this->builder->getCrossReferences()->getTrailerObject($name);
     }
 
     /**
@@ -111,188 +129,30 @@ class Document extends PagesDictionary
      * @param $key
      * @param $value
      */
-    public function setInfo($key, $value)
+    public function setInfoString($key, $value)
     {
-        $this->information->setString($key, $value);
+        $this->getTrailerObject('Info')->setString($key, $value);
     }
 
     /**
-     * Set default PDF meta info values
+     * Set Catalog preference value
      *
-     * @return $this
+     * @param $value
      */
-    public function setDefaultInfoValues()
+    public function addViewerPreference($value)
     {
-        $info = array(
-            'Producer'     => 'PdfBuilder ' . self::VERSION,
-            'CreationDate' => 'D:' . @date('YmdHis'),
-        );
-
-        foreach ($info as $key => $value) {
-            $this->setInfo($key, $value);
-        }
-        return $this;
+        $this->builder->getCatalog()->setObjectName('ViewerPreferences', $value, true);
     }
 
     /**
-     * Add an object
+     * Get th PDF output, as string 'S', download 'D', browser inline 'I' or file 'F'.
      *
-     * @param  $object
-     * @return CosObject
-     */
-    protected function add($object)
-    {
-        if (is_string($object)) {
-            $object = new CosObject($object);
-        }
-        $count = count($this->objects) + 1;
-
-        $this->objects[$count] = $object;
-        $object->objectId = $count;
-
-        if ($object instanceof Page) {
-            $this->addPageEntry($object);
-
-            $this->pages[] = $object;
-            $object->pageNo = count($this->pages);
-        }
-
-        return $object;
-    }
-
-    /**
-     * Add a reference to the Xref table
-     *
-     * @param $objectId
-     * @param $offset
-     */
-    protected function addXref($objectId, $offset)
-    {
-        $this->crossReferences[$objectId] = $offset;
-    }
-
-    /**
-     * Get array of streams to output
-     *
-     * @param  null     $document
-     * @return Stream[]
-     */
-    public function getStreams($document = null)
-    {
-        $this->crossReferences = [];
-
-        $streams[] = $header = new Stream();
-        $header->writeString(sprintf("%%PDF-%.1F\n%s", $this->pdfVersion, "%\xe2\xe3\xcf\xd3"));
-        $offset = $header->getSize();
-
-        $lazyObjectIterator = new ArrayIterator($this->objects);
-
-        /** @var $object CosObject */
-        foreach ($lazyObjectIterator as $objectId => $object) {
-            $oStreams = (($object === $this) ? parent::getStreams($this) : $object->getStreams($this));
-
-            if (isset($object->objects) && ($object !== $this)) {
-                /** @var $lazyObject CosObject */
-                foreach ($object->objects as $lazyObject) {
-                    $lazyObjectIterator[$lazyObject->objectId] = $lazyObject;
-                }
-            }
-
-            $this->addXRef($objectId, $offset);
-            $streams = array_merge($streams, $oStreams);
-
-            foreach ($oStreams as $objectStream) {
-                $offset += $objectStream->getSize();
-            }
-        }
-
-        $streams[] = $this->getXrefStream($offset);
-        return $streams;
-    }
-
-    /**
-     * Get Xref table stream
-     *
-     * @param  $tableOffset
-     * @return Stream
-     */
-    protected function getXrefStream($tableOffset)
-    {
-        $stream = new Stream();
-        $stream->writeString(sprintf("\nxref\n0 %s\n0000000000 65535 f \n", (count($this->objects) + 1)));
-
-        foreach ($this->crossReferences as $offset) {
-            $stream->writeString(sprintf("%010d 00000 n \n", $offset + 1));
-        }
-
-        $stream->writeString("trailer\n<<");
-        $stream->writeString(sprintf("\n/Size %s\n/Root %s", count($this->objects) + 1, $this->catalog->getReference()));
-
-        if (isset($this->information)) {
-            $stream->writeString(sprintf("\n/Info %s", $this->information->getReference()));
-        }
-        if (isset($this->encryptionObject)) {
-            $stream->writeString(sprintf("\n/Encrypt %s", $this->encryptionObject->getReference()));
-        }
-
-        $stream->writeString("\n>>\n");
-        $stream->writeString(sprintf("startxref\n%s\n%%%%EOF\n", ($tableOffset + 1)));
-
-        return $stream;
-    }
-
-    /**
-     * Get the PDF output, as file, forced download, inline
-     * browser viewing or raw string.
-     *
-     * @param  string $filename
-     * @param  string $destination
-     * @return string
-     * @throws Exception\PdfException
+     * @param string $filename
+     * @param string $destination
+     * @return mixed
      */
     public function output($filename = 'file.pdf', $destination = 'I')
     {
-        if (isset($_SERVER['HTTP_USER_AGENT']) && $_SERVER['HTTP_USER_AGENT'] == 'contype') {
-            header('Content-Type: application/pdf');
-            exit;
-        }
-
-        if ($destination == 'S') {
-            $string = '';
-            foreach ($this->getStreams() as $pdfStream) {
-                $pdfStream->seek(0);
-                $string .= stream_get_contents($pdfStream->getStream());
-            }
-            return $string;
-        }
-
-        if ($destination == 'F') {
-            if (!$f = fopen($filename, 'wb')) {
-                throw new PdfException('Unable to create output file: '.$filename);
-            }
-            foreach ($this->getStreams() as $pdfStream) {
-                $pdfStream->seek(0);
-                stream_copy_to_stream($pdfStream->getStream(), $f);
-            }
-            fclose($f);
-            exit;
-        }
-
-        if ($destination == 'I') {
-                header("Content-Type: application/pdf");
-                header('Content-Disposition: inline; filename="' . $filename . '"');
-                header('Cache-Control: private, max-age=0, must-revalidate');
-                header("Content-Length: " . $this->getSize());
-        } else if ($destination == 'D') {
-                header('Content-Type: application/x-download');
-                header('Content-Disposition: attachment; filename="' . $filename . '"');
-                header('Cache-Control: private, max-age=0, must-revalidate');
-                header('Pragma: public');
-        }
-
-        foreach ($this->getStreams() as $pdfStream) {
-            $pdfStream->seek(0);
-            fpassthru($pdfStream->getStream());
-        }
+        return $this->builder->output($filename, $destination);
     }
 }

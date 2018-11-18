@@ -22,6 +22,8 @@ class Stream
     {
         if ($stream == null) {
             $this->resource = fopen('php://temp', 'wb');
+        } else {
+            $this->resource = $stream;
         }
     }
 
@@ -65,6 +67,21 @@ class Stream
     }
 
     /**
+     * Read a number of bytes and rewind stream to
+     * previous position.
+     *
+     * @param  $sizeInBytes
+     * @return string
+     */
+    public function peek($sizeInBytes)
+    {
+        $data = fread($this->resource, $sizeInBytes);
+        fseek($this->resource, -$sizeInBytes, SEEK_CUR);
+
+        return $data;
+    }
+
+    /**
      * Check stream EOF.
      *
      * @return bool
@@ -94,8 +111,7 @@ class Stream
      */
     public function compare($sizeInBytes, $bytes)
     {
-        $data = fread($this->resource, $sizeInBytes);
-        fseek($this->resource, -$sizeInBytes, SEEK_CUR);
+        $data = $this->peek($sizeInBytes);
 
         if (is_array($bytes)) {
             $source = $bytes;

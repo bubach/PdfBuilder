@@ -3,7 +3,7 @@ namespace PdfBuilder\Pdf;
 
 use PdfBuilder\Document;
 
-class CosObject
+class CosStructure
 {
 
     /**
@@ -12,9 +12,14 @@ class CosObject
     public $objectId;
 
     /**
-     * @var array Entries in this object.
+     * @var array Direct/inline objects in this structure.
      */
-    protected $entries = [];
+    public $directObjects = [];
+
+    /**
+     * @var array Indirect/referenced objects in this structure.
+     */
+    public $indirectObjects = [];
 
     /**
      * Constructor.
@@ -78,7 +83,7 @@ class CosObject
      */
     public function setName($key, $value)
     {
-        return $this->entries['/' . $key] = '/' . $this->escapeValue($value);
+        return $this->directObjects['/' . $key] = '/' . $this->escapeValue($value);
     }
 
     /**
@@ -90,7 +95,7 @@ class CosObject
      */
     public function setString($key, $value)
     {
-        return $this->entries['/' . $key] = '(' . $this->escapeValue($value) . ')';
+        return $this->directObjects['/' . $key] = '(' . $this->escapeValue($value) . ')';
     }
 
     /**
@@ -102,12 +107,13 @@ class CosObject
      */
     public function setValue($key, $value)
     {
-        return $this->entries['/' . $key] = $value;
+        return $this->directObjects['/' . $key] = $value;
     }
 
     /**
-     * Add an array Name type value or values if
-     * provided with an array
+     * Add an array Name type value or values if provided with an
+     * array. Key is optional and not part of output. Can also
+     * be an array for one to one key => value mapping.
      *
      * @param string       $array
      * @param string|array $value
@@ -191,33 +197,33 @@ class CosObject
      */
     public function getCount($name)
     {
-        $count = (isset($this->entries[$name]) ? count($this->entries[$name]) : 0);
-        return (isset($this->entries[$name][1]) ? count($this->entries[$name][1]) : $count);
+        $count = (isset($this->directObjects[$name]) ? count($this->directObjects[$name]) : 0);
+        return (isset($this->directObjects[$name][1]) ? count($this->directObjects[$name][1]) : $count);
     }
 
     /**
-     * Check if entry are available.
+     * Check if a named direct object is available.
      *
      * @param $name
      * @return bool
      */
     public function has($name)
     {
-        return (isset($this->entries[$name]) ? true : false);
+        return (isset($this->directObjects[$name]) ? true : false);
     }
 
     /**
-     * Check if entries are available.
+     * Check if any direct objects are available.
      *
      * @return bool
      */
     public function isEmpty()
     {
-        return (count($this->entries) > 0) ? true : false;
+        return (count($this->directObjects) > 0) ? false : true;
     }
 
     /**
-     * And an inline object or array entry
+     * And an direct inline object or array entry
      *
      * @param string $objectType
      * @param string $valueType
@@ -230,19 +236,19 @@ class CosObject
         $startDelimiter = (($objectType == 'array') ? '[' : '<<');
         $endDelimiter = (($objectType == 'array') ? ']' : '>> ');
 
-        if (!isset($this->entries[$object]) || !$add) {
-            $this->entries[$object] = [$startDelimiter, [], $endDelimiter];
+        if (!isset($this->directObjects[$object]) || !$add) {
+            $this->directObjects[$object] = [$startDelimiter, [], $endDelimiter];
         }
 
         foreach ((array)$value as $v) {
             $v = (($valueType == 'name') ? '/' . $this->escapeValue($v) : $v);
             $v = (($valueType == 'string') ? '(' . $this->escapeValue($v) . ')' : $this->escapeValue($v));
-            $this->entries[$object][1][] = $v;
+            $this->directObjects[$object][1][] = $v;
         }
     }
 
     /**
-     * Process the objects entries to form
+     * Process the structure's direct cos-objects to form
      * array of output streams.
      *
      * @param  array  $entries
@@ -269,19 +275,15 @@ class CosObject
     }
 
     /**
-     * Get array of streams that should be
-     * outputted in order.
-     *
-     * Re-set entry for Parent in case the Id has
-     * updated.
+     * Get array of streams to output in order for full PDF.
      *
      * @param  null|Document $document
      * @return Stream[]
      */
     public function getStreams($document = null)
     {
-        if ($document instanceof Document && !empty($this->objects)) {
-            foreach ($this->objects as $object) {
+        if ($document instanceof Document && !empty($this->indirectObjects)) {
+            foreach ($this->indirectObjects as $object) {
                 if (empty($object->objectId)) {
                     $document->add($object);
                 }
@@ -292,12 +294,14 @@ class CosObject
         $header->writeString("\n{$this->objectId} 0 obj\n");
         $header->writeString("<<\n");
 
-        $header->writeString($this->process($this->entries));
+        $header->writeString($this->process($this->directObjects));
+        $header->seek(0);
         $streams[] = $header;
 
         $footer = new Stream();
         $footer->writeString("\n>>\n");
         $footer->writeString("endobj");
+        $footer->seek(0);
         $streams[] = $footer;
 
         return $streams;

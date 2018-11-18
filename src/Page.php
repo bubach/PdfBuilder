@@ -1,11 +1,9 @@
 <?php
 namespace PdfBuilder;
 
-use PdfBuilder\Pdf\Content;
-use PdfBuilder\Pdf\CosObject;
-use PdfBuilder\Pdf\Resource;
+use PdfBuilder\Pdf\CosStructure;
 
-class Page extends CosObject
+class Page extends CosStructure
 {
 
     /**
@@ -19,14 +17,14 @@ class Page extends CosObject
     protected $contents;
 
     /**
-     * @var CosObject Resources object
+     * @var CosStructure Resources object
      */
     protected $resources;
 
     /**
-     * @var array List of page objects
+     * @var array List of page objects, possibly without object ID's until rendering.
      */
-    public $objects = [];
+    public $indirectObjects = [];
 
     /**
      * @var array Default page margins
@@ -69,14 +67,18 @@ class Page extends CosObject
     /**
      * Constructor allows for orphan pages.
      *
-     * @param null $parent
+     * @param null  $parent
      */
     public function __construct($parent = null)
     {
         parent::__construct('Page', (($parent) ? $parent : $this));
 
-        $this->contents = new Content();
-        $this->resources = new Resource();
+        $this->contents = new CosStructure('Contents');
+        $this->resources = new CosStructure('Resources');
+
+        $this->resources->setArrayName('ProcSet', ['PDF', 'TEXT', 'ImageB', 'ImageC', 'ImageI']);
+        $this->resources->setObjectValue('Font', null);
+        $this->resources->setObjectValue('XObject', null);
 
         $this->add($this->contents);
         $this->add($this->resources);
@@ -89,7 +91,7 @@ class Page extends CosObject
      *
      * @param $parent
      */
-    public function setParent(CosObject $parent)
+    public function setParent(CosStructure $parent)
     {
         $this->setValue('Parent', $parent->getLazyReference());
     }
@@ -98,25 +100,28 @@ class Page extends CosObject
      * Keep internal list of objects, so that a page
      * can be attached to a document at later time.
      *
-     * @param  CosObject $object
+     * @param  CosStructure $object
      * @return $this
      */
     public function add($object)
     {
-        return $this->objects[] = $object;
+        return $this->indirectObjects[] = $object;
     }
 
     /**
-     * Set page MediaBox
+     * Set page bounding box
      *
-     * @param $left
-     * @param $bottom
-     * @param $right
-     * @param $top
+     * @param string $type
+     * @param array  $dimensions Left, bottom, right, top.
      */
-    public function setMediaBox($left, $bottom, $right, $top)
+    public function setBoundingBox($type = 'MediaBox', $dimensions)
     {
-        $this->setArrayValue('MediaBox', [$left, $bottom, $right, $top]);
+        if (!is_array($dimensions) || count($dimensions) !== 4) {
+            $dimensions = [0, 0];
+            array_push($dimensions, Page::$sizes[Page::$defaultSize][0]);
+            array_push($dimensions, Page::$sizes[Page::$defaultSize][1]);
+        }
+        $this->setArrayValue($type, $dimensions);
     }
 
     /**
@@ -127,6 +132,10 @@ class Page extends CosObject
      */
     public function getStreams($document = null)
     {
+        if (!$this->has('MediaBox')) {
+            $size = Page::$sizes[Page::$defaultSize];
+            $this->setBoundingBox('MediaBox', 0, 0, $size[0], $size[1]);
+        }
         return parent::getStreams($document);
     }
 }
