@@ -1,6 +1,7 @@
 <?php
 namespace PdfBuilder\Pdf;
 
+use PdfBuilder\Stream\Stream;
 use PdfBuilder\Document;
 
 class CosStructure
@@ -17,9 +18,14 @@ class CosStructure
     public $directObjects = [];
 
     /**
-     * @var array Indirect/referenced objects in this structure.
+     * @var CosStructure[] Indirect/referenced objects in this structure.
      */
     public $indirectObjects = [];
+
+    /**
+     * @var Stream Content stream, usually with compression filter.
+     */
+    protected $stream;
 
     /**
      * Constructor.
@@ -45,6 +51,25 @@ class CosStructure
     public function getReference()
     {
         return $this->objectId . ' 0 R';
+    }
+
+    /**
+     * Add stream data
+     *
+     * @param $data
+     */
+    public function addStreamData($data)
+    {
+        if (empty($this->stream) || $data instanceof Stream) {
+            $this->stream = (($data instanceof Stream) ? $data : new Stream());
+
+            $this->setValue('Length', function() {
+                return $this->stream->getSize();
+            });
+        }
+        if (is_string($data)) {
+            $this->stream->writeString($data);
+        }
     }
 
     /**
@@ -75,7 +100,7 @@ class CosStructure
     }
 
     /**
-     * Adds/overwrites an name entry to the content object.
+     * Adds/overwrites an name entry to the COS object.
      *
      * @param  string $key   The name key
      * @param  string $value The name value, shown as "/Value"
@@ -83,11 +108,14 @@ class CosStructure
      */
     public function setName($key, $value)
     {
-        return $this->directObjects['/' . $key] = '/' . $this->escapeValue($value);
+        if (!empty($key)) {
+            return $this->directObjects['/' . $key] = '/' . $this->escapeValue($value);
+        }
+        return $this->directObjects[] = '/' . $this->escapeValue($value);
     }
 
     /**
-     * Adds/overwrites an string entry to the content object.
+     * Adds/overwrites an string entry to the COS object.
      *
      * @param  string $key   The value key
      * @param  string $value The string value
@@ -95,7 +123,10 @@ class CosStructure
      */
     public function setString($key, $value)
     {
-        return $this->directObjects['/' . $key] = '(' . $this->escapeValue($value) . ')';
+        if (!empty($key)) {
+            return $this->directObjects['/' . $key] = '(' . $this->escapeValue($value) . ')';
+        }
+        return $this->directObjects[] = '(' . $this->escapeValue($value) . ')';
     }
 
     /**
@@ -107,7 +138,10 @@ class CosStructure
      */
     public function setValue($key, $value)
     {
-        return $this->directObjects['/' . $key] = $value;
+        if (!empty($key)) {
+            return $this->directObjects['/' . $key] = $value;
+        }
+        return $this->directObjects[] = $value;
     }
 
     /**
@@ -213,6 +247,17 @@ class CosStructure
     }
 
     /**
+     * Get a named direct object if available.
+     *
+     * @param $name
+     * @return bool
+     */
+    public function get($name)
+    {
+        return (isset($this->directObjects[$name]) ? trim($this->directObjects[$name], '/') : null);
+    }
+
+    /**
      * Check if any direct objects are available.
      *
      * @return bool
@@ -290,19 +335,29 @@ class CosStructure
             }
         }
 
-        $header = new Stream();
-        $header->writeString("\n{$this->objectId} 0 obj\n");
-        $header->writeString("<<\n");
+        $stream = new Stream();
+        $stream->writeString("\n{$this->objectId} 0 obj\n");
+        $stream->writeString("<<\n");
 
-        $header->writeString($this->process($this->directObjects));
-        $header->seek(0);
-        $streams[] = $header;
+        $stream->writeString($this->process($this->directObjects));
+        $stream->writeString("\n>>\n");
 
-        $footer = new Stream();
-        $footer->writeString("\n>>\n");
-        $footer->writeString("endobj");
-        $footer->seek(0);
-        $streams[] = $footer;
+        if ($this->stream instanceof Stream) {
+            $stream->writeString("stream\n");
+            $stream->seek(0);
+
+            $streams[] = $stream;
+            $stream = new Stream();
+
+            $this->stream->seek(0);
+            $streams[] = $this->stream;
+
+            $stream->writeString("endstream\n");
+        }
+
+        $stream->writeString("endobj");
+        $stream->seek(0);
+        $streams[] = $stream;
 
         return $streams;
     }

@@ -1,5 +1,5 @@
 <?php
-namespace PdfBuilder\Pdf;
+namespace PdfBuilder\Stream;
 
 class Stream
 {

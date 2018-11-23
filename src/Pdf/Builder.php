@@ -2,6 +2,7 @@
 namespace PdfBuilder\Pdf;
 
 use PdfBuilder\Exception\PdfException;
+use PdfBuilder\Stream\Stream;
 use PdfBuilder\Document;
 use ArrayIterator;
 
@@ -17,6 +18,11 @@ class Builder
      * @var CrossReferences The PDF xref table.
      */
     protected $xref;
+
+    /**
+     * @var integer The current object offset for xref.
+     */
+    protected $offset;
 
     /**
      * @var CosStructure The PDF Catalog directory.
@@ -118,7 +124,8 @@ class Builder
     }
 
     /**
-     * Get all PDF streams and combine to one.
+     * Get all PDF streams and combine to one. Supports lazy add
+     * of objects to the document tree while looping.
      *
      * @param  string|Stream $destination
      * @throws PdfException
@@ -134,33 +141,45 @@ class Builder
         }
 
         $destination->writeString(sprintf("%%PDF-%.1F\n%s", $this->pages->getVersion(), "%\xe2\xe3\xcf\xd3"));
-        $offset = $destination->getSize();
+        $this->offset = $destination->getSize();
+
+        /** @var $lazyObjectIterator CosStructure[] */
         $lazyObjectIterator = new ArrayIterator($this->indirectObjects);
 
-        /** @var $object CosStructure */
         foreach ($lazyObjectIterator as $objectId => $object) {
             $oStreams = $object->getStreams($this->pages);
 
             if (isset($object->indirectObjects) && ($object !== $this)) {
-                /** @var $lazyObject CosStructure */
                 foreach ($object->indirectObjects as $lazyObject) {
                     $lazyObjectIterator[$lazyObject->objectId] = $lazyObject;
                 }
             }
-            $this->xref->addXRef($objectId, $offset);
+            $this->xref->addXRef($objectId, $this->offset);
 
             foreach ($oStreams as $objectStream) {
-                $offset += $objectStream->getSize();
+                $this->offset += $objectStream->getSize();
                 stream_copy_to_stream($objectStream->getStream(), $destination->getStream());
             }
         }
 
-        $this->xref->setTableOffset($offset);
+        $this->xref->setTableOffset($this->offset);
         $xref = $this->xref->getStreams();
         $xref = reset($xref);
         stream_copy_to_stream($xref->getStream(), $destination->getStream());
+        $this->offset += $xref->getSize();
 
         return $destination;
+    }
+
+    /**
+     * Get the total size of all streams after
+     * calling pipeStreams()
+     *
+     * @return integer Size in bytes
+     */
+    public function getSize()
+    {
+        return $this->offset;
     }
 
     /**
@@ -197,7 +216,7 @@ class Builder
                 header('Content-Type: application/x-download');
                 header('Content-Disposition: attachment; filename="' . $filename . '"');
                 header('Cache-Control: private, max-age=0, must-revalidate');
-                header('Pragma: public');
+                header("Content-Length: " . $this->getSize());
 
                 $this->pipeStreams('php://output');
                 break;

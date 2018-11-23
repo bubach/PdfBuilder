@@ -30,11 +30,12 @@ class Document extends CosStructure
      * Constructor.
      *
      * @param array $options Bounding box options.
+     * @param null  $builder
      */
-    public function __construct($options = [])
+    public function __construct($options = [], $builder = null)
     {
         parent::__construct('Pages');
-        $this->builder = new Builder($this);
+        $this->builder = ($builder instanceof Builder) ? $builder : new Builder($this);
     }
 
     /**
@@ -80,7 +81,9 @@ class Document extends CosStructure
     }
 
     /**
-     * Add an object to the document
+     * Add an object to the document, supports
+     * creating from string & some special handling for
+     * Page instances
      *
      * @param  $object
      * @return CosStructure
@@ -99,6 +102,7 @@ class Document extends CosStructure
             $this->setArrayValue('Kids', $object->getLazyReference(), true);
             $this->setValue('Count', $this->getCount('Kids'));
         }
+
         return $this->builder->add($object);
     }
 

@@ -1,6 +1,8 @@
 <?php
 namespace PdfBuilder\Pdf;
 
+use PdfBuilder\Stream\Stream;
+
 class CrossReferences extends CosStructure
 {
 

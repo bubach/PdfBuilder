@@ -73,7 +73,7 @@ class Page extends CosStructure
     {
         parent::__construct('Page', (($parent) ? $parent : $this));
 
-        $this->contents = new CosStructure('Contents');
+        $this->contents = new CosStructure();
         $this->resources = new CosStructure('Resources');
 
         $this->resources->setArrayName('ProcSet', ['PDF', 'TEXT', 'ImageB', 'ImageC', 'ImageI']);
@@ -82,8 +82,6 @@ class Page extends CosStructure
 
         $this->add($this->contents);
         $this->add($this->resources);
-
-        $this->setValue('Resources', $this->resources->getLazyReference());
     }
 
     /**
@@ -125,10 +123,81 @@ class Page extends CosStructure
     }
 
     /**
+     * For now, hardcoded AF
+     *
+     * @param         $fontName
+     * @param  int    $fontSize
+     * @param  string $style
+     * @return        $this
+     */
+    public function setFont($fontName, $fontSize = 10, $style = '')
+    {
+        /** @var $fonts CosStructure[] */
+        static $fonts = [];
+
+        $fontNumber = 0;
+        $font = new CosStructure('Font');
+        $font->setName('BaseFont', $fontName);
+        $font->setName('Subtype', 'Type1');
+        $font->setName('Encoding', 'WinAnsiEncoding');
+
+        if (isset($fonts[$fontName])) {
+            foreach ($fonts as $font) {
+                $fontNumber++;
+
+                if ($font->get('/BaseFont') === $fontName) {
+                    break;
+                }
+            }
+        } else {
+            $this->add($font);
+            $fontNumber++;
+        }
+
+        $this->resources->setObjectValue(
+            'Font',
+            [sprintf('/F%d', $fontNumber), $font->getLazyReference()]
+        );
+
+        $this->contents->addStreamData(
+            sprintf("BT /F%d %d Tf ET\n", $fontNumber, $fontSize)
+        );
+
+        return $this;
+    }
+
+    /**
+     * Print out text to the PDF, low level routine with no
+     * bounding box overflow checks made.
+     *
+     * @param  $x
+     * @param  $y
+     * @param  $text
+     * @return $this
+     */
+    public function addText($x, $y, $text)
+    {
+        $text = '(' . $this->escapeValue($text) . ')';
+        $scaleFactor = 1.0;
+        $height      = Page::$sizes[Page::$defaultSize][1];
+
+        $y = ($height - $y) * $scaleFactor;
+        $x = $x * $scaleFactor;
+        $rgbColor = 0;
+
+        $this->contents->addStreamData(
+            //sprintf("q %.3F g BT /F1 %d Tf %.2F %.2F Td %s Tj ET Q\n", $rgbColor, $fontSizePt, $x, $y, $text)
+            sprintf("BT %.2F %.2F Td %s Tj ET\n", $x, $y, $text)
+        );
+
+        return $this;
+    }
+
+    /**
      * Debug breakpoint access
      *
-     * @param  null         $document
-     * @return Pdf\Stream[]
+     * @param  null                        $document
+     * @return \PdfBuilder\Stream\Stream[]
      */
     public function getStreams($document = null)
     {
@@ -136,6 +205,15 @@ class Page extends CosStructure
             $size = Page::$sizes[Page::$defaultSize];
             $this->setBoundingBox('MediaBox', 0, 0, $size[0], $size[1]);
         }
+
+        if (!$this->contents->isEmpty()) {
+            $this->setValue('Contents', $this->contents->getLazyReference());
+        }
+
+        if (!$this->resources->isEmpty()) {
+            $this->setValue('Resources', $this->resources->getLazyReference());
+        }
+
         return parent::getStreams($document);
     }
 }
