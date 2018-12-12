@@ -14,7 +14,13 @@ class Stream
     protected $offset = 0;
 
     /**
-     * Constructor
+     * @var array Named offsets for later lookup
+     */
+    protected $marks = [];
+
+    /**
+     * Constructor, will use memory stream if not
+     * provided with a valid stream pointer.
      *
      * @param $stream Resource pointer to stream
      */
@@ -30,10 +36,14 @@ class Stream
     /**
      * Get stream resource.
      *
+     * @param  bool     $rewinded
      * @return resource
      */
-    public function getStream()
+    public function getStream($rewinded = false)
     {
+        if ($rewinded) {
+            $this->seek(0);
+        }
         return $this->resource;
     }
 
@@ -51,19 +61,56 @@ class Stream
     }
 
     /**
-     * Go to offset in stream.
+     * Go to offset in stream. Can use string for
+     * accessing previously set mark.
      *
      * @param int $offset
      */
     public function seek($offset)
     {
-        if ($offset < 0) {
+        if (is_string($offset)) {
+            fseek($this->resource, $this->marks[$offset]);
+        } elseif ($offset < 0) {
             fseek($this->resource, $offset, SEEK_END);
         } else {
             fseek($this->resource, $offset);
         }
 
         $this->offset = ftell($this->resource);
+    }
+
+    /**
+     * Skip ahead N bytes.
+     *
+     * @param $bytes
+     */
+    public function skip($bytes)
+    {
+        fseek($this->resource, $bytes, SEEK_CUR);
+        $this->offset += $bytes;
+    }
+
+    /**
+     * Mark current or provided offset as 'name'.
+     *
+     * @param      $name
+     * @param null $offset
+     */
+    public function setMarker($name, $offset = null)
+    {
+        $offset = (is_null($offset) ? $this->offset : $offset);
+        $this->marks[$name] = $offset;
+    }
+
+    /**
+     * Get marker offset
+     *
+     * @param  $name
+     * @return bool
+     */
+    public function getMarker($name)
+    {
+        return isset($this->marks[$name]) ? $this->marks[$name] : false;
     }
 
     /**
@@ -126,38 +173,6 @@ class Stream
     }
 
     /**
-     * Zero fill bitwise right shift
-     *
-     * @param  $value
-     * @param  $shiftBy
-     * @return int
-     */
-    protected function zerofillRightShift($value, $shiftBy)
-    {
-        if ($shiftBy >= 32 || $shiftBy < -32) {
-            $m = (int)($shiftBy / 32);
-            $shiftBy = $shiftBy - ($m * 32);
-        }
-        if ($shiftBy < 0) {
-            $shiftBy = 32 + $shiftBy;
-        }
-        if ($shiftBy == 0) {
-            return (($value >> 1) & 0x7FFFFFFF) * 2 + (($value >> $shiftBy) & 1);
-        }
-
-        if ($value < 0) {
-            $value = ($value >> 1);
-            $value &= 0x7FFFFFFF;
-            $value |= 0x40000000;
-            $value = ($value >> ($shiftBy - 1));
-        } else {
-            $value = ($value >> $shiftBy);
-        }
-
-        return $value;
-    }
-
-    /**
      * Read a byte from the stream.
      *
      * @return int
@@ -189,167 +204,12 @@ class Stream
     }
 
     /**
-     * Get boolean from stream.
-     *
-     * @return bool
-     */
-    public function readBool()
-    {
-        return !!$this->readByte();
-    }
-
-    /**
-     * Write boolean to stream.
-     *
-     * @param $val
-     */
-    public function writeBool($val)
-    {
-        $this->writeByte(($val) ? 1 : 0);
-    }
-
-    /**
-     * Read unsigned int32 from stream.
-     *
-     * @return int
-     */
-    public function readUInt32()
-    {
-        $b1 = $this->readByte() * 0x1000000;
-        $b2 = $this->readByte() << 16;
-        $b3 = $this->readByte() << 8;
-        $b4 = $this->readByte();
-
-        return $b1 + $b2 + $b3 + $b4;
-    }
-
-    /**
-     * Write unsigned int32 to stream.
-     *
-     * @param  $val
-     * @return int
-     */
-    public function writeUInt32($val)
-    {
-        $this->writeByte($this->zerofillRightShift($val, 24) & 0xff);
-        $this->writeByte($val >> 16 & 0xff);
-        $this->writeByte($val >> 8 & 0xff);
-
-        return $this->writeByte($val & 0xff);
-    }
-
-    /**
-     * Read int32 from stream.
-     *
-     * @return int
-     */
-    public function readInt32()
-    {
-        $int = $this->readUInt32();
-
-        if ($int >= 0x80000000) {
-            return $int - 0x100000000;
-        } else {
-            return $int;
-        }
-    }
-
-    /**
-     * Write int32 to stream.
-     *
-     * @param  $val
-     * @return int
-     */
-    public function writeInt32($val)
-    {
-        if ($val < 0) {
-            $val += 0x100000000;
-        }
-        return $this->writeUInt32($val);
-    }
-
-    /**
-     * Read integer from stream.
-     *
-     * @return int
-     */
-    public function readInt()
-    {
-        return $this->readInt32();
-    }
-
-    /**
-     * Write integer to stream.
-     *
-     * @param  $val
-     * @return int
-     */
-    public function writeInt($val)
-    {
-        return $this->writeInt32($val);
-    }
-
-    /**
-     * Read unsigned int16 from stream.
-     *
-     * @return int
-     */
-    public function readUInt16()
-    {
-        $b1 = $this->readByte() << 8;
-        $b2 = $this->readByte();
-
-        return $b1 | $b2;
-    }
-
-    /**
-     * Write unsigned int16 to stream.
-     *
-     * @param  $val
-     * @return int
-     */
-    public function writeUInt16($val)
-    {
-        $this->writeByte($val >> 8 & 0xff);
-        return $this->writeByte($val & 0xff);
-    }
-
-    /**
-     * Read int16 from stream.
-     *
-     * @return int
-     */
-    public function readInt16()
-    {
-        $int = $this->readUInt16();
-        if ($int >= 0x8000) {
-            return $int - 0x10000;
-        } else {
-            return $int;
-        }
-    }
-
-    /**
-     * Write int16 to stream.
-     *
-     * @param  $val
-     * @return int
-     */
-    public function writeInt16($val)
-    {
-        if ($val < 0) {
-            $val += 0x10000;
-        }
-        return $this->writeUInt16($val);
-    }
-
-    /**
      * Read string from stream.
      *
      * @param  int    $size
      * @return string
      */
-    public function readString($size = 1)
+    public function read($size = 1)
     {
         $data = fread($this->resource, $size);
 
@@ -365,123 +225,59 @@ class Stream
     /**
      * Write a string to the stream.
      *
-     * @param  $string
+     * @param      $data
+     * @param null $length
+     * @return     $this
      */
-    public function writeString($string)
+    public function write($data, $length = null)
     {
-        if (fwrite($this->resource, $string)) {
-            $this->offset += strlen($string);
+        if (is_null($length)) {
+            $length = strlen($data);
+        }
+
+        if (fwrite($this->resource, $data, $length)) {
+            $this->offset += $length;
         } else {
             $this->offset = ftell($this->resource);
         }
+
+        return $this;
     }
 
     /**
-     * Read short from stream.
+     * Return unsigned 16-bit int
+     *
+     * @return int
+     */
+    public function readUShort()
+    {
+        $data = unpack('nn', $this->read(2));
+        return $data['n'];
+    }
+
+    /**
+     * Get signed 16-bit int
      *
      * @return int
      */
     public function readShort()
     {
-        return $this->readInt16();
-    }
-
-    /**
-     * Write short to stream.
-     *
-     * @param  $val
-     * @return int
-     */
-    public function writeShort($val)
-    {
-        return $this->writeInt16($val);
-    }
-
-    /**
-     * Read long long from stream.
-     *
-     * @return int
-     */
-    public function readLongLong()
-    {
-        $b1 = $this->readByte();
-        $b2 = $this->readByte();
-        $b3 = $this->readByte();
-        $b4 = $this->readByte();
-        $b5 = $this->readByte();
-        $b6 = $this->readByte();
-        $b7 = $this->readByte();
-        $b8 = $this->readByte();
-
-        if ($b1 & 0x80) {
-            return
-                $b1 ^ 0xff * 0x100000000000000 +
-                $b2 ^ 0xff * 0x1000000000000 +
-                $b3 ^ 0xff * 0x10000000000 +
-                $b4 ^ 0xff * 0x100000000 +
-                $b5 ^ 0xff * 0x1000000 +
-                $b6 ^ 0xff * 0x10000 +
-                $b7 ^ 0xff * 0x100 +
-                $b8 ^ 0xff + 1 * -1;
+        $data = unpack('nn', $this->read(2));
+        if ($data['n'] >= 0x8000) {
+            $data['n'] -= 65536;
         }
-        return
-            $b1 * 0x100000000000000 +
-            $b2 * 0x1000000000000 +
-            $b3 * 0x10000000000 +
-            $b4 * 0x100000000 +
-            $b5 * 0x1000000 +
-            $b6 * 0x10000 +
-            $b7 * 0x100 +
-            $b8;
+        return $data['n'];
     }
 
     /**
-     * Write long long to stream.
+     * Get unsigned 32-bit int
      *
-     * @param  $val
      * @return int
      */
-    public function writeLongLong($val)
+    public function readULong()
     {
-        $high = floor($val / 0x100000000);
-        $low = $val & 0xffffffff;
-
-        $this->writeByte($high >> 24 & 0xff);
-        $this->writeByte($high >> 16 & 0xff);
-        $this->writeByte($high >> 8 & 0xff);
-        $this->writeByte($high & 0xff);
-        $this->writeByte($low >> 24 & 0xff);
-        $this->writeByte($low >> 16 & 0xff);
-        $this->writeByte($low >> 8 & 0xff);
-
-        return $this->writeByte($low & 0xff);
-    }
-
-    /**
-     * Read from the stream.
-     *
-     * @param  $bytes
-     * @return string
-     */
-    public function read($bytes)
-    {
-        $data = fread($this->resource, $bytes);
-        $this->offset = (($data !== false) ? $this->offset + $bytes : ftell($this->resource));
-        return $data;
-    }
-
-    /**
-     * Write bytes to stream.
-     *
-     * @param $bytes
-     */
-    public function write($bytes)
-    {
-        if (fwrite($this->resource, $bytes)) {
-            $this->offset += strlen($bytes);
-        } else {
-            $this->offset = ftell($this->resource);
-        }
+        $data = unpack('NN', $this->read(4));
+        return $data['N'];
     }
 
     /**

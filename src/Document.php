@@ -155,7 +155,7 @@ class Document extends CosStructure
      * @param string $destination
      * @return mixed
      */
-    public function output($filename = 'file.pdf', $destination = 'I')
+    public function output($filename = 'document.pdf', $destination = 'I')
     {
         return $this->builder->output($filename, $destination);
     }

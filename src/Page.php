@@ -2,6 +2,7 @@
 namespace PdfBuilder;
 
 use PdfBuilder\Pdf\CosStructure;
+use PdfBuilder\Stream\Stream;
 
 class Page extends CosStructure
 {
@@ -196,8 +197,8 @@ class Page extends CosStructure
     /**
      * Debug breakpoint access
      *
-     * @param  null                        $document
-     * @return \PdfBuilder\Stream\Stream[]
+     * @param  null     $document
+     * @return Stream[]
      */
     public function getStreams($document = null)
     {

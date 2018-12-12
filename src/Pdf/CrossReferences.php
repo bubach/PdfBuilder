@@ -95,23 +95,23 @@ class CrossReferences extends CosStructure
         $stream = new Stream();
         $objectCount = $this->builder->getObjectCount() + 1;
 
-        $stream->writeString(sprintf("\nxref\n0 %s\n0000000000 65535 f \n", $objectCount));
+        $stream->write(sprintf("\nxref\n0 %s\n0000000000 65535 f \n", $objectCount));
 
         foreach ($this->crossReferences as $offset) {
-            $stream->writeString(sprintf("%010d 00000 n \n", $offset + 1));
+            $stream->write(sprintf("%010d 00000 n \n", $offset + 1));
         }
 
-        $stream->writeString("trailer\n<<");
+        $stream->write("trailer\n<<");
 
         $catalogRef = $this->builder->getCatalog()->getReference();
-        $stream->writeString(sprintf("\n/Size %s\n/Root %s", $objectCount, $catalogRef));
+        $stream->write(sprintf("\n/Size %s\n/Root %s", $objectCount, $catalogRef));
 
         foreach ($this->trailerObjects as $name => $object) {
-            $stream->writeString(sprintf("\n/%s %s", $name, $object->getReference()));
+            $stream->write(sprintf("\n/%s %s", $name, $object->getReference()));
         }
 
-        $stream->writeString("\n>>\n");
-        $stream->writeString(sprintf("startxref\n%s\n%%%%EOF\n", ($this->tableOffset + 1)));
+        $stream->write("\n>>\n");
+        $stream->write(sprintf("startxref\n%s\n%%%%EOF\n", ($this->tableOffset + 1)));
         $stream->seek(0);
 
         return [$stream];

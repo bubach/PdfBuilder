@@ -140,7 +140,7 @@ class Builder
             $destination = new Stream($f);
         }
 
-        $destination->writeString(sprintf("%%PDF-%.1F\n%s", $this->pages->getVersion(), "%\xe2\xe3\xcf\xd3"));
+        $destination->write(sprintf("%%PDF-%.1F\n%s", $this->pages->getVersion(), "%\xe2\xe3\xcf\xd3"));
         $this->offset = $destination->getSize();
 
         /** @var $lazyObjectIterator CosStructure[] */
@@ -191,7 +191,7 @@ class Builder
      * @return string
      * @throws PdfException
      */
-    public function output($filename = 'file.pdf', $destination = 'I')
+    public function output($filename = 'document.pdf', $destination = 'I')
     {
         if (isset($_SERVER['HTTP_USER_AGENT']) && $_SERVER['HTTP_USER_AGENT'] == 'contype') {
             header('Content-Type: application/pdf');

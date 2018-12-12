@@ -67,8 +67,9 @@ class CosStructure
                 return $this->stream->getSize();
             });
         }
+
         if (is_string($data)) {
-            $this->stream->writeString($data);
+            $this->stream->write($data);
         }
     }
 
@@ -146,8 +147,7 @@ class CosStructure
 
     /**
      * Add an array Name type value or values if provided with an
-     * array. Key is optional and not part of output. Can also
-     * be an array for one to one key => value mapping.
+     * array.
      *
      * @param string       $array
      * @param string|array $value
@@ -336,14 +336,14 @@ class CosStructure
         }
 
         $stream = new Stream();
-        $stream->writeString("\n{$this->objectId} 0 obj\n");
-        $stream->writeString("<<\n");
+        $stream->write("\n{$this->objectId} 0 obj\n");
+        $stream->write("<<\n");
 
-        $stream->writeString($this->process($this->directObjects));
-        $stream->writeString("\n>>\n");
+        $stream->write($this->process($this->directObjects));
+        $stream->write("\n>>\n");
 
         if ($this->stream instanceof Stream) {
-            $stream->writeString("stream\n");
+            $stream->write("stream\n");
             $stream->seek(0);
 
             $streams[] = $stream;
@@ -352,10 +352,10 @@ class CosStructure
             $this->stream->seek(0);
             $streams[] = $this->stream;
 
-            $stream->writeString("endstream\n");
+            $stream->write("endstream\n");
         }
 
-        $stream->writeString("endobj");
+        $stream->write("endobj");
         $stream->seek(0);
         $streams[] = $stream;
 
