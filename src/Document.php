@@ -1,10 +1,12 @@
 <?php
 namespace PdfBuilder;
 
-use PdfBuilder\Pdf\CosStructure;
-use PdfBuilder\Pdf\Builder;
+use ArrayIterator;
+use PdfBuilder\Pdf\ObjectStructure;
+use PdfBuilder\Pdf\CrossReferences;
+use PdfBuilder\Stream\Stream;
 
-class Document extends CosStructure
+class Document
 {
     /**
      * Constant for library version
@@ -12,9 +14,24 @@ class Document extends CosStructure
     const VERSION = '1.0.0';
 
     /**
-     * @var Builder The Pdf builder instance.
+     * @var ObjectStructure The PDF Catalog directory.
      */
-    protected $builder;
+    protected $catalogObject;
+
+    /**
+     * @var ObjectStructure The PDF Catalog directory.
+     */
+    protected $pagesObject;
+
+    /**
+     * @var CrossReferences The Pdf builder instance.
+     */
+    protected $xrefObject;
+
+    /**
+     * @var integer The current object offset for xref.
+     */
+    protected $offset;
 
     /**
      * @var array Page[] Array of Page instances
@@ -22,20 +39,36 @@ class Document extends CosStructure
     protected $pages = [];
 
     /**
+     * @var ObjectStructure[] Document objects.
+     */
+    protected $indirectObjects = [];
+
+    /**
      * @var float PDF format version
      */
     public $pdfVersion = 1.7;
 
     /**
-     * Constructor.
+     * @var string Random hexadecimal document Id for meta-data
+     */
+    public $documentId;
+
+    /**
+     * Constructor. This represents the PDF object 'Pages'.
      *
      * @param array $options Bounding box options.
-     * @param null  $builder
      */
-    public function __construct($options = [], $builder = null)
+    public function __construct($options = [])
     {
-        parent::__construct('Pages');
-        $this->builder = ($builder instanceof Builder) ? $builder : new Builder($this);
+        $this->documentId    = uniqid().uniqid();
+        $this->catalogObject = new ObjectStructure('Catalog');
+        $this->pagesObject   = new ObjectStructure('Pages');
+
+        $this->add($this->catalogObject);
+        $this->add($this->pagesObject);
+
+        $this->catalogObject->setValue('Pages', $this->pagesObject->getReference());
+        $this->xrefObject = new CrossReferences($this);
     }
 
     /**
@@ -58,8 +91,9 @@ class Document extends CosStructure
     public function addPage($page = null)
     {
         if (!$page instanceof Page) {
-            $page = new Page($this);
+            $page = new Page($this->pagesObject);
         }
+
         return $this->add($page);
     }
 
@@ -77,54 +111,87 @@ class Document extends CosStructure
         } elseif (empty($pageNo) || !isset($this->pages[$pageNo - 1])) {
             return end($this->pages);
         }
+
         return $this->pages[$pageNo - 1];
     }
 
     /**
-     * Add an object to the document, supports
-     * creating from string & some special handling for
-     * Page instances
+     * Get the number of objects we're building.
+     *
+     * @return int
+     */
+    public function getObjectCount()
+    {
+        return count($this->indirectObjects);
+    }
+
+    /**
+     * Add an object to the document, supports creating from
+     * string & some special handling for Page instances.
      *
      * @param  $object
-     * @return CosStructure
+     * @return ObjectStructure
      */
     public function add($object)
     {
         if (is_string($object)) {
-            $object = new CosStructure($object);
+            $object = new ObjectStructure($object);
         }
 
         if ($object instanceof Page) {
             $this->pages[] = $object;
             $object->pageNo = count($this->pages);
-            $object->setParent($this);
+            $object->setParent($this->pagesObject);
 
-            $this->setArrayValue('Kids', $object->getLazyReference(), true);
-            $this->setValue('Count', $this->getCount('Kids'));
+            $this->pagesObject->setArrayValue('Kids', $object->getReference(), true);
+            $this->pagesObject->setValue('Count', $this->pagesObject->getCount('Kids'));
         }
 
-        return $this->builder->add($object);
+        $object->objectId = $this->getObjectCount() + 1;
+        $this->indirectObjects[$object->objectId] = $object;
+
+        return $object;
     }
 
     /**
-     * Get the library version.
+     * Get the Pages Dictionary
      *
-     * @return string PdfBuilder version
+     * @return ObjectStructure
      */
-    public function getVersion()
+    public function getPagesDictionary()
     {
-        return self::VERSION;
+        return $this->pagesObject;
     }
 
     /**
-     * Get reference to trailer objects
+     * Get Catalog Dictionary
+     *
+     * @return ObjectStructure
+     */
+    public function getCatalogDictionary()
+    {
+        return $this->catalogObject;
+    }
+
+    /**
+     * Get the Xref object
+     *
+     * @return CrossReferences
+     */
+    public function getCrossReferenceTable()
+    {
+        return $this->xrefObject;
+    }
+
+    /**
+     * Get a trailer object instance by name
      *
      * @param  $name
-     * @return CosStructure
+     * @return ObjectStructure
      */
     public function getTrailerObject($name)
     {
-        return $this->builder->getCrossReferences()->getTrailerObject($name);
+        return $this->getCrossReferenceTable()->getTrailerObject($name);
     }
 
     /**
@@ -133,7 +200,7 @@ class Document extends CosStructure
      * @param $key
      * @param $value
      */
-    public function setInfoString($key, $value)
+    public function setTrailerInfoString($key, $value)
     {
         $this->getTrailerObject('Info')->setString($key, $value);
     }
@@ -143,20 +210,51 @@ class Document extends CosStructure
      *
      * @param $value
      */
-    public function addViewerPreference($value)
+    public function addCatalogViewerPreference($value)
     {
-        $this->builder->getCatalog()->setObjectName('ViewerPreferences', $value, true);
+        $this->catalogObject->setDictionaryName('ViewerPreferences', $value, true);
     }
 
     /**
-     * Get th PDF output, as string 'S', download 'D', browser inline 'I' or file 'F'.
+     * Flush the PDF output to provided stream,
+     * STDOUT is default output stream.
      *
-     * @param string $filename
-     * @param string $destination
-     * @return mixed
+     * @param  resource|null $IOResource
+     * @return Stream
      */
-    public function output($filename = 'document.pdf', $destination = 'I')
+    public function output($IOResource = null)
     {
-        return $this->builder->output($filename, $destination);
+        if (!is_resource($IOResource)) {
+            $IOResource = STDOUT;
+        }
+
+        $destination = new Stream($IOResource);
+        $destination->write(sprintf("%%PDF-%.1F\n%s", $this->pdfVersion, "%\xe2\xe3\xcf\xd3"));
+        $this->offset = $destination->getSize();
+
+        /** @var $lazyObjectIterator ObjectStructure[] */
+        $lazyObjectIterator = new ArrayIterator($this->indirectObjects);
+
+        foreach ($lazyObjectIterator as $objectId => $object) {
+            $oStreams = $object->getStreams($this);
+
+            if (isset($object->indirectObjects)) {
+                foreach ($object->indirectObjects as $lazyObject) {
+                    $lazyObjectIterator[$lazyObject->objectId] = $lazyObject;
+                }
+            }
+            $this->getCrossReferenceTable()->addXRef($objectId, $this->offset);
+
+            foreach ($oStreams as $objectStream) {
+                $this->offset += $objectStream->getSize();
+                stream_copy_to_stream($objectStream->getResource(), $destination->getResource());
+            }
+        }
+
+        $this->getCrossReferenceTable()->setTableOffset($this->offset);
+        stream_copy_to_stream($this->getCrossReferenceTable()->getXrefStream()->getResource(), $destination->getResource());
+        $this->offset += $this->getCrossReferenceTable()->getXrefStream()->getSize();
+
+        return $destination;
     }
 }

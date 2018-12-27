@@ -39,12 +39,22 @@ class Stream
      * @param  bool     $rewinded
      * @return resource
      */
-    public function getStream($rewinded = false)
+    public function getResource($rewinded = false)
     {
         if ($rewinded) {
             $this->seek(0);
         }
         return $this->resource;
+    }
+
+    /**
+     * Get the current stream offset
+     *
+     * @return int
+     */
+    public function getOffset()
+    {
+        return $this->offset;
     }
 
     /**
